@@ -1,6 +1,6 @@
 # Forecasting Validation Project
 
-Welcome to the Forecasting Validation Project repository, which contains scripts and analyses dedicated to validating tools and methodologies within the Forecasting Task Team (TT) of the LSST DESC.
+Welcome to the Forecasting Validation Project repository, which contains scripts and analyses dedicated to validating tools and methodologies within the Forecasting Topical Team (TT) of the LSST DESC.
 
 ## Overview
 
