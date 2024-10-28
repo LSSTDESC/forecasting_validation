@@ -28,7 +28,7 @@ how the lensing kernel changes.
 Parametric study applies here as well.
 - **Differences between CCL versions 2.8 and 3.0**: We will compare the angular power spectra
 and lensing kernel between CCL versions 2.8 and 3.0.
-- ** Validation nz and binning**: We will validate the redshift distribution and binning again just to make sure that it is stable.
+- **Validation nz and binning**: We will validate the redshift distribution and binning again just to make sure that it is stable.
 ## Contents
 
 - **Scripts**: Automation and computation scripts for forecasting workflows.
