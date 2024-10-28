@@ -46,7 +46,7 @@ def compare_two_data_vector_sets_relative(data_vector_1,
         plt.plot(ells_1, data_vector_1[:, i] / data_vector_2[:, i] - 1, c=colors_1[3])
         plt.axhline(0, c="gray")
 
-    plt.plot([], [], c="white", label=f"X = {label_1} \n Y = {label_2}")
+    plt.plot([], [], c="white", label=f"X: {label_1} \n Y: {label_2}")
 
     plt.xlabel("Multipole Scale $\\ell$", fontsize=18)
     plt.ylabel("$C_{\\ell}^X / C_{\\ell}^Y - 1 $", fontsize=18)
