@@ -68,6 +68,28 @@ class Metrics:
         cls_array = np.column_stack(cls_list)
         return cls_array
 
+    def galaxy_clustering_cls(self, include_gbias=True):
+        gbias = self.get_gbias() if include_gbias else None
+
+        correlations = self.get_correlation_pairs()["galaxy_clustering"]
+
+        cls_list = []
+
+        for idx_1, idx_2 in correlations:
+            tracer1 = ccl.NumberCountsTracer(self.cosmology,
+                                             has_rsd=False,
+                                             dndz=(self.redshift_range, self.lens_bins[idx_1]),
+                                             bias=(self.redshift_range, np.full_like(self.redshift_range, 1.0)))
+            tracer2 = ccl.NumberCountsTracer(self.cosmology,
+                                             has_rsd=False,
+                                             dndz=(self.redshift_range, self.lens_bins[idx_2]),
+                                             bias=(self.redshift_range, np.full_like(self.redshift_range, 1.0)))
+
+            cls_list.append(ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells))
+
+        cls_array = np.column_stack(cls_list)
+        return cls_array
+
     def cosmic_shear_correlations(self):
         """
         Calculates the source-source bin pairs for cosmic shear.
