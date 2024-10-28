@@ -35,6 +35,15 @@ and lensing kernel between CCL versions 2.8 and 3.0.
 - **Analysis**: Detailed analyses and validation results for the Forecasting TT project.
 - **Configuration**: Configurations and sample `.ini` and `.yaml` files to reproduce forecasting setups.
 
+### Analysis choices (clean this up)
+Here to do:
+define z ranges, ell ranges to sweep, cosmo, nz and bins simple systemtics
+
+Reischke -- MCMC simple runs with the same setup
+Yunhao: his own code  to compute cls and compare with CCL
+Niko: add chi and lensing kernels to check
+We do shear clustering and ggl separately and compare all 
+
 ## Getting Started
 
 To get started, clone this repository and install the required packages for each tool. Example commands and more detailed usage instructions can be found in the corresponding directories.
