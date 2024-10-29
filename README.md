@@ -41,8 +41,11 @@ define z ranges, ell ranges to sweep, cosmo, nz and bins simple systemtics
 
 Reischke -- MCMC simple runs with the same setup
 Yunhao: his own code  to compute cls and compare with CCL
-Niko: add chi and lensing kernels to check
+Niko: add chi and lensing kernels to check, add the option to not have binning
+(in order to exclude if the problem is coming from the binning of source galaxies 
 We do shear clustering and ggl separately and compare all 
+Paul suggested to check which binning shceme is the optional one since 
+we have differnt binning schemes for sources and lenses 
 
 ## Getting Started
 

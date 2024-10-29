@@ -16,7 +16,8 @@ class TomographicBinning:
 
     def __init__(self,
                  redshift_range,
-                 forecast_year="1"):
+                 forecast_year="1",
+                 perform_binning=True):
         """
         Performs the slicing of the input redshift distribution into tomographic bins.
         The binning algorithm follows the LSST DESC prescription. For more details, see
@@ -43,7 +44,7 @@ class TomographicBinning:
         else:
             raise ValueError(f"forecast_year must be one of {supported_forecast_years}.")
 
-        self.redshift_range = redshift_range
+        self.redshift_range = np.array(redshift_range, dtype=np.float64)
         self.forecast_year = forecast_year
 
         current_dir = os.path.dirname(__file__)
@@ -56,8 +57,10 @@ class TomographicBinning:
         self.lens_params = self.lsst_desc_parameters["lens_sample"][self.forecast_year]
         self.source_params = self.lsst_desc_parameters["source_sample"][self.forecast_year]
 
-        self.lens_nz = SRDRedshiftDistributions(self.redshift_range, forecast_year).lens_sample()
-        self.source_nz = SRDRedshiftDistributions(self.redshift_range, forecast_year).source_sample()
+        # Load the redshift distributions with high precision
+        self.nz = SRDRedshiftDistributions(self.redshift_range, forecast_year)
+        self.source_nz = np.array(self.nz.source_sample(), dtype=np.float64)
+        self.lens_nz = np.array(self.nz.lens_sample(), dtype=np.float64)
 
     def true_redshift_distribution(self, upper_edge, lower_edge, variance, bias, redshift_distribution):
         """A function that returns the true redshift distribution of a galaxy sample.
@@ -114,127 +117,106 @@ class TomographicBinning:
 
         return [redshift_range[0]] + bin_edges + [redshift_range[-1]]
 
-    def source_bins(self, normalised=True, save_file=True, file_format='npy'):
-        """split the initial redshift distribution of source galaxies into tomographic bins.
-        LSST DESC case, sources are split into 5 tomographic bins (year 1 and year 10 forecast).
-        Each bin has equal number of galaxies. Variance is 0.05 for both forecast years while z_bias is zero.
-        For more information about the redshift distributions and binning,
-        consult the LSST DESC Science Requirements Document (SRD) https://arxiv.org/abs/1809.01669,
-        Appendix D.
-        ----------
-        Arguments:
-            normalised (bool): normalise the redshift distribution (defaults to True).
-            save_file (bool): option to save the output as a .csv (defaults to True).
-                Saves the redshift range and the corresponding redshift
-                distributions for each bin. The bin headers are the
-                dictionary keys.
-            file_format (str): format of the output file (defaults to 'npy').
-                Accepted values are 'csv' and 'npy'.
+    def source_bins(self, normalised=True, perform_binning=True, save_file=True, file_format='npy'):
+        """Split the initial redshift distribution of source galaxies into tomographic bins or return the original distribution.
+
+        For LSST DESC, sources are split into 5 tomographic bins for both year 1 and year 10 forecasts,
+        with equal numbers of galaxies in each bin.
+
+        Parameters:
+            normalised (bool): Normalize each bin's redshift distribution independently (default True).
+            perform_binning (bool): Perform binning (default True). If False, return the original distribution in dictionary format.
+            save_file (bool): Option to save the output file (default True).
+            file_format (str): Format of the output file, 'csv' or 'npy' (default 'npy').
+
         Returns:
-            A source galaxy sample (dictionary), appropriately binned."""
-        # Get the bin edges as redshift values directly
+            dict: Source galaxy sample, binned or original distribution.
+        """
+
+        if not perform_binning:
+            # Return the original distribution in a dictionary format without binning
+            return {0: self.source_nz}
+
+        # Perform binning
         bins = self.compute_equal_number_bounds(self.redshift_range,
                                                 self.source_nz,
                                                 self.source_params["n_tomo_bins"])
 
         # Get the bias and variance values for each bin
-        source_z_bias_list = np.repeat(self.source_params["z_bias"],
-                                       self.source_params["n_tomo_bins"])
-        source_z_variance_list = np.repeat(self.source_params["sigma_z"],
-                                           self.source_params["n_tomo_bins"])
+        source_z_bias_list = np.repeat(self.source_params["z_bias"], self.source_params["n_tomo_bins"])
+        source_z_variance_list = np.repeat(self.source_params["sigma_z"], self.source_params["n_tomo_bins"])
 
         # Create a dictionary of the redshift distributions for each bin
         source_redshift_distribution_dict = {}
-        # Loop over the bins: each bin is defined by the upper and lower edge of the bin
         for index, (x1, x2) in enumerate(zip(bins[:-1], bins[1:])):
             z_bias = source_z_bias_list[index]
             z_variance = source_z_variance_list[index]
-            source_redshift_distribution_dict[index] = self.true_redshift_distribution(x1,
-                                                                                       x2,
-                                                                                       z_variance,
-                                                                                       z_bias,
-                                                                                       self.source_nz)
+            dist = self.true_redshift_distribution(x1, x2, z_variance, z_bias, self.source_nz)
 
-        # Normalise the distributions
-        if normalised:
-            norm_factor = []
-            for key in sorted(source_redshift_distribution_dict.keys()):
-                norm_factor.append(simpson(source_redshift_distribution_dict[key], self.redshift_range))
-                source_redshift_distribution_dict[key] /= norm_factor[-1]
+            # Normalize each bin individually if normalisation is True
+            if normalised:
+                norm_factor = simpson(dist, self.redshift_range)
+                dist /= norm_factor  # Normalize the distribution
 
-            # Create a combined dictionary
-        combined_data = {'redshift_range': self.redshift_range,
-                         'bins': source_redshift_distribution_dict}
+            source_redshift_distribution_dict[index] = dist
 
-        # Save the data
+        # Create a combined dictionary with the redshift range and bins
+        combined_data = {'redshift_range': self.redshift_range, 'bins': source_redshift_distribution_dict}
+
+        # Save the data if required
         if save_file:
             self.save_to_file(combined_data, "source", file_format)
 
         return source_redshift_distribution_dict
 
-    def lens_bins(self,
-                  normalised=True,
-                  save_file=True,
-                  file_format='npy'):
+    def lens_bins(self, normalised=True, perform_binning=True, save_file=True, file_format='npy'):
         """
-        Split the initial redshift distribution of lens galaxies (lenses) into tomographic bins.
-        In the LSST DESC case, lenses are split into 5 tomographic bins (year 1 forecast) or 10
-        tomographic bins (year 10). Binning is performed in such a way that the bins are spaced
-        by 0.1 in photo-z between 0.2 ≤ z ≤ 1.2 for Y10, and 5 bins spaced by 0.2 in photo-z in
-        the same redshift range.
-        Variance is 0.03 for both forecast years while z_bias is zero.
-        For more information about the redshift distributions and binning,
-        consult the LSST DESC Science Requirements Document (SRD) https://arxiv.org/abs/1809.01669,
-        Appendix D.
-        ----------
-        Arguments:
-            normalised: bool
-                normalise the redshift distribution (defaults to True).
-            save_file: bool
-                option to save the output as a .csv (defaults to True).
-                Saves the redshift range and the corresponding redshift
-                distributions for each bin. The bin headers are the
-                dictionary keys.
-            file_format: str (defaults to 'npy')
-                format of the output file. Accepted values are 'csv' and 'npy'.
-        Returns: dictionary
-                A lens galaxy sample, appropriately binned. Depending on the forecast year
-                chosen while initialising the class, it will output a lens sample for year 1
-                (5 bins) or lens galaxy sample for year 10 (10 bins).
+        Split the initial redshift distribution of lens galaxies (lenses) into tomographic bins or return the original distribution.
+
+        For LSST DESC, lenses are split into 5 or 10 tomographic bins depending on the forecast year,
+        with variance 0.03 and z_bias of zero.
+
+        Parameters:
+            normalised (bool): Normalize each bin's redshift distribution independently (default True).
+            perform_binning (bool): Perform binning (default True). If False, return the original distribution in dictionary format.
+            save_file (bool): Option to save the output file (default True).
+            file_format (str): Format of the output file, 'csv' or 'npy' (default 'npy').
+
+        Returns:
+            dict: Lens galaxy sample, binned or original distribution.
         """
+
+        if not perform_binning:
+            # Return the original distribution in a dictionary format without binning
+            return {0: self.lens_nz}
+
         # Define the bin edges
         bins = np.arange(self.lens_params["bin_start"],
                          self.lens_params["bin_stop"] + self.lens_params["bin_spacing"],
                          self.lens_params["bin_spacing"])
 
         # Get the bias and variance values for each bin
-        lens_z_bias_list = np.repeat(self.lens_params["z_bias"],
-                                     self.lens_params["n_tomo_bins"])
-        lens_z_variance_list = np.repeat(self.lens_params["sigma_z"],
-                                         self.lens_params["n_tomo_bins"])
+        lens_z_bias_list = np.repeat(self.lens_params["z_bias"], self.lens_params["n_tomo_bins"])
+        lens_z_variance_list = np.repeat(self.lens_params["sigma_z"], self.lens_params["n_tomo_bins"])
 
         # Create a dictionary of the redshift distributions for each bin
         lens_redshift_distribution_dict = {}
         for index, (x1, x2) in enumerate(zip(bins[:-1], bins[1:])):
             z_bias = lens_z_bias_list[index]
             z_variance = lens_z_variance_list[index]
-            lens_redshift_distribution_dict[index] = self.true_redshift_distribution(x1,
-                                                                                     x2,
-                                                                                     z_variance,
-                                                                                     z_bias,
-                                                                                     self.lens_nz)
+            dist = self.true_redshift_distribution(x1, x2, z_variance, z_bias, self.lens_nz)
 
-        # Normalise the distributions
-        if normalised:
-            norm_factor = []
-            for i, key in enumerate(list(sorted(lens_redshift_distribution_dict.keys()))):
-                norm_factor.append(simpson(lens_redshift_distribution_dict[key], self.redshift_range))
-                lens_redshift_distribution_dict[key] /= norm_factor[i]
+            # Normalize each bin individually if normalisation is True
+            if normalised:
+                norm_factor = simpson(dist, self.redshift_range)
+                dist /= norm_factor  # Normalize the distribution
 
-        combined_data = {'redshift_range': self.redshift_range,
-                         'bins': lens_redshift_distribution_dict}
+            lens_redshift_distribution_dict[index] = dist
 
-        # Save the distributions to a file
+        # Combine the data
+        combined_data = {'redshift_range': self.redshift_range, 'bins': lens_redshift_distribution_dict}
+
+        # Save the distributions to a file if specified
         if save_file:
             self.save_to_file(combined_data, "lens", file_format)
 

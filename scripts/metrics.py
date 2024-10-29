@@ -8,10 +8,11 @@ import os
 
 class Metrics:
 
-    def __init__(self, cosmology, redshift_range, ells, forecast_year="1"):
+    def __init__(self, cosmology, redshift_range, ells, forecast_year="1", perform_binning=True):
         self.cosmology = cosmology
-        self.redshift_range = redshift_range
-        self.ells = ells
+        self.redshift_range = np.array(redshift_range, dtype=np.float64)  # Use float64 precision
+        self.ells = np.array(ells, dtype=np.float64)
+        self.perform_binning = perform_binning
 
         supported_forecast_years = {"1", "10"}
         if forecast_year in supported_forecast_years:
@@ -29,14 +30,13 @@ class Metrics:
         self.lens_parameters = lsst_desc_parameters["lens_sample"][self.forecast_year]
         self.source_parameters = lsst_desc_parameters["source_sample"][self.forecast_year]
 
-        self.lens_nz = SRDRedshiftDistributions(self.redshift_range,
-                                                self.forecast_year).lens_sample()
-        self.source_nz = SRDRedshiftDistributions(self.redshift_range,
-                                                  self.forecast_year).source_sample()
-        self.lens_bins = TomographicBinning(self.redshift_range,
-                                            self.forecast_year).lens_bins()
-        self.source_bins = TomographicBinning(self.redshift_range,
-                                              self.forecast_year).source_bins()
+        self.nz = SRDRedshiftDistributions(self.redshift_range, forecast_year)
+        self.source_nz = np.array(self.nz.source_sample(), dtype=np.float64)
+        self.lens_nz = np.array(self.nz.lens_sample(), dtype=np.float64)
+
+        self.bin = TomographicBinning(self.redshift_range, self.forecast_year)
+        self.lens_bins = self.bin.lens_bins(perform_binning=self.perform_binning)
+        self.source_bins = self.bin.source_bins(perform_binning=self.perform_binning)
 
     def get_ia_bias(self):
         # For now just simple constant IA bias
@@ -89,6 +89,31 @@ class Metrics:
 
         cls_array = np.column_stack(cls_list)
         return cls_array
+
+    def comoving_radial_distance(self):
+
+        scale_factor = 1 / (1 + self.redshift_range)
+        return ccl.comoving_radial_distance(self.cosmology, scale_factor)
+
+    def compare_comoving_radial_distances(self, other_redshift_range):
+
+        # Compute distances for both redshift ranges
+        chi_self = self.comoving_radial_distance()
+        scale_factor_other = 1 / (1 + other_redshift_range)
+        chi_other = ccl.comoving_radial_distance(self.cosmology, scale_factor_other)
+
+        # Define a fine grid for comparison
+        redshift_fine = np.linspace(0, max(self.redshift_range.max(), other_redshift_range.max()), 5000)
+
+        # Use numpy.interp for interpolation on the fine grid
+        chi_self_interp = np.interp(redshift_fine, self.redshift_range, chi_self)
+        chi_other_interp = np.interp(redshift_fine, other_redshift_range, chi_other)
+
+        # Calculate absolute and relative differences
+        abs_diff = np.abs(chi_self_interp - chi_other_interp)
+        rel_diff = abs_diff / np.abs(chi_self_interp)
+
+        return abs_diff, rel_diff
 
     def cosmic_shear_correlations(self):
         """
@@ -171,3 +196,5 @@ class Metrics:
                         selected_pairs.append((source_index, lens_index))
 
                 return selected_pairs
+
+
