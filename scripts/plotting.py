@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import cmasher as cmr
+import seaborn as sns
 
 
 def get_colors(data, cmap="cmr.pride", cmap_range=(0.15, 0.85)):
@@ -85,17 +86,24 @@ def plot_bin_centers_subplots(bin_centers_resolutions,
                               percentage=None,
                               marker_size=5,
                               stability_steps=10,
-                              fig_format=".pdf"):
+                              include_error_bars=False,
+                              fig_format=".pdf",
+                              title_pad=0.95):
     """
     Plot bin centers across different redshift resolutions in separate subplots with an optional averaged percentage band.
     Adds a vertical line at the resolution where the bin center stabilizes within the desired band for `stability_steps` consecutive steps.
 
     Parameters:
+        zmax (float): Maximum redshift value for the bin centers.
+        forecast_year (str): Forecast year for the bin centers.
         bin_centers_resolutions (dict): Nested dictionary containing bin centers for each redshift resolution.
         bin_type (str): Either "source" or "lens" to specify which bin centers to plot.
-        percentage (float, optional): Percentage for the band around the average bin center. If None, no band is plotted.
-        marker_size (int): Size of the markers in the plot (default: 6).
-        stability_steps (int): Number of consecutive steps within the band required to consider it stable (default: 5).
+        percentage (float): Percentage for the averaged band (default: None).
+        marker_size (int): Size of the markers for the bin centers (default: 5).
+        stability_steps (int): Number of consecutive steps within the band required for stabilization (default: 10).
+        include_error_bars (bool): Whether to include error bars in the plot (default: False).
+        fig_format (str): File format for saving the figure (default: ".pdf").
+        title_pad (float): Padding for the title above the subplots (default: 1.02).
     """
     # Extract resolutions and sort them
     resolutions = sorted(map(int, bin_centers_resolutions.keys()))
@@ -107,7 +115,10 @@ def plot_bin_centers_subplots(bin_centers_resolutions,
 
     # Set up subplots
     fig, axes = plt.subplots(num_bins, 1, figsize=(8, 2. * num_bins), sharex=True)
-    fig.suptitle(f"{bin_type.capitalize()} Bin Centers Across Redshift Resolutions", fontsize=16)
+    # Add a title above all subplots with padding
+    fig.suptitle(f"{bin_type.capitalize()} Bin Centers Across Redshift Resolutions",
+                 fontsize=16,
+                 y=title_pad)
 
     # If there's only one bin, ensure axes is actually iterable
     if num_bins == 1:
@@ -119,6 +130,14 @@ def plot_bin_centers_subplots(bin_centers_resolutions,
         bin_center_values = [
             bin_centers_resolutions[res][f"{bin_type}_bin_centers"][bin_key] for res in resolutions
         ]
+        bin_center_values = np.array(bin_center_values)
+        std_dev = np.std(bin_center_values)  # Calculate standard deviation for error bars
+
+        # Plot with error bars if requested
+        if include_error_bars:
+            axes[i].errorbar(resolutions, bin_center_values, yerr=std_dev, fmt='o', markersize=marker_size,
+                         color=colors[i], label=f"Bin {bin_key + 1}")
+
         axes[i].plot(resolutions, bin_center_values, marker='o', markersize=marker_size, c=colors[i])
         axes[i].set_ylabel(f"bin {bin_key + 1} centre")
 
@@ -150,6 +169,8 @@ def plot_bin_centers_subplots(bin_centers_resolutions,
 
     # Set x-axis label on the last subplot
     axes[-1].set_xlabel("redshift resolution", fontsize=18)
+    # include ticks everywhere top bottom left right and inwards
+    plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
 
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     fig_name = f"{bin_type}_bin_centers_sweep_zmax{zmax}_y{forecast_year}{fig_format}"
@@ -185,7 +206,7 @@ def plot_stabilization_vs_percentage(bin_centers_resolutions,
 
         for percentage in percentages:
             bin_center_values = [
-                bin_centers_resolutions[(res)][f"{bin_type}_bin_centers"][bin_key] for res in resolutions
+                bin_centers_resolutions[res][f"{bin_type}_bin_centers"][bin_key] for res in resolutions
             ]
             avg_bin_center = np.mean(bin_center_values)
             margin = avg_bin_center * (percentage / 100)
@@ -213,9 +234,77 @@ def plot_stabilization_vs_percentage(bin_centers_resolutions,
     # Add labels and legend
     ax.set_xlabel("Percentage Band", fontsize=14)
     ax.set_ylabel("Stabilization Resolution", fontsize=14)
-    ax.set_title(f"Stabilization Resolution vs. Percentage Band for {bin_type.capitalize()} Bins", fontsize=16)
     ax.legend(title="Bin", fontsize=10)
 
     plt.tight_layout()
     plt.show()
 
+
+def plot_stabilization_resolution_heatmap(bin_centers_by_zmax,
+                                          bin_type="source",
+                                          percentage=0.1,
+                                          stability_steps=10,
+                                          forecast_year="1",
+                                          fig_format=".pdf"):
+    """
+    Create a seaborn heatmap of the redshift resolution where stabilization occurs for each bin and `zmax` value.
+
+    Parameters:
+        bin_centers_by_zmax (dict): Nested dictionary containing bin centers for each `zmax` and resolution.
+        bin_type (str): Either "source" or "lens" to specify which bin centers to plot.
+        percentage (float): Percentage for stabilization band (default 5%).
+        stability_steps (int): Number of consecutive steps within the band required for stabilization (default 10).
+        forecast_year (str): The forecast year (default "1").
+        fig_format (str): File format for saving the figure (default ".pdf").
+    """
+    # Extract sorted `zmax` values and resolutions
+    zmax_values = sorted(bin_centers_by_zmax.keys())
+    sample_zmax = zmax_values[0]
+    resolution_values = sorted(bin_centers_by_zmax[sample_zmax].keys())
+
+    # Extract bin keys
+    bin_keys = list(bin_centers_by_zmax[sample_zmax][resolution_values[0]][f"{bin_type}_bin_centers"].keys())
+
+    # Initialize a matrix for stabilization resolution heatmap data
+    heatmap_data = np.full((len(bin_keys), len(zmax_values)), np.nan)
+
+    # Find the stabilization resolution for each `zmax` and bin
+    for zmax_idx, zmax in enumerate(zmax_values):
+        for bin_idx, bin_key in enumerate(bin_keys):
+            # Retrieve bin center values across resolutions for current `zmax` and bin
+            bin_center_values = [
+                bin_centers_by_zmax[zmax][res][f"{bin_type}_bin_centers"][bin_key] for res in resolution_values
+            ]
+
+            # Calculate stabilization based on percentage band
+            avg_bin_center = np.mean(bin_center_values)
+            margin = avg_bin_center * (percentage / 100)
+            upper_band = avg_bin_center + margin
+            lower_band = avg_bin_center - margin
+
+            # Identify first stabilization resolution
+            stable_count = 0
+            for res_idx, value in enumerate(bin_center_values):
+                if lower_band <= value <= upper_band:
+                    stable_count += 1
+                    if stable_count >= stability_steps:
+                        heatmap_data[bin_idx, zmax_idx] = resolution_values[res_idx]
+                        break
+                else:
+                    stable_count = 0  # Reset if outside band
+
+    # Plot the heatmap
+    plt.figure(figsize=(10, len(bin_keys) * 0.5))
+    ax = sns.heatmap(heatmap_data, annot=True, fmt=".0f", cmap="cmr.pride",
+                     cbar_kws={'label': 'Stabilization Resolution'},
+                     xticklabels=np.round(zmax_values, 2), yticklabels=[f"Bin {i + 1}" for i in bin_keys])
+
+    # Add title and labels
+    ax.set_title(f"{bin_type.capitalize()} Stabilization Resolution Across Zmax Values (Forecast Year {forecast_year})", fontsize=14)
+    ax.set_xlabel("Zmax", fontsize=12)
+    ax.set_ylabel("Bin Index", fontsize=12)
+
+    # Save the figure
+    fig_name = f"{bin_type}_stabilization_resolution_heatmap_zmax_sweep_y{forecast_year}{fig_format}"
+    plt.savefig(f"plots_output/{fig_name}")
+    plt.show()
