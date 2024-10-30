@@ -62,4 +62,11 @@ class NZMetrics:
                 "lens_bin_centers": lens_bin_centers
             }
 
+        extra_info = f"zmax{self.redshift_max}"
+        self.save_data("bin_centers_resolutions",
+                       bin_centers_resolutions,
+                       "bin_centers",
+                       extra_info=extra_info,
+                       include_ccl_version=True)
+
         return bin_centers_resolutions
