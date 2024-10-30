@@ -2,41 +2,32 @@ import numpy as np
 import pyccl as ccl
 from .srd_redshift_distributions import SRDRedshiftDistributions
 from .tomographic_binning import TomographicBinning
-import yaml
-import os
+from .presets import Presets
 
 
-class Metrics:
+class DataVectors:
 
-    def __init__(self, cosmology, redshift_range, ells, forecast_year="1", perform_binning=True):
-        self.cosmology = cosmology
-        self.redshift_range = np.array(redshift_range, dtype=np.float64)  # Use float64 precision
-        self.ells = np.array(ells, dtype=np.float64)
-        self.perform_binning = perform_binning
+    def __init__(self, presets: Presets):
+        if not isinstance(presets, Presets):
+            raise TypeError(f"Expected a Presets object, but received {type(presets).__name__}.")
+        # Set the cosmology to the user-defined value or a default if not provided
+        self.cosmology = presets.cosmology
+        self.redshift_range = presets.redshift_range
+        self.ells = presets.ells
+        self.perform_binning = presets.perform_binning
+        self.forecast_year = presets.forecast_year
+        self.redshift_max = presets.redshift_max
+        self.redshift_resolution = presets.redshift_resolution
 
-        supported_forecast_years = {"1", "10"}
-        if forecast_year in supported_forecast_years:
-            self.forecast_year = forecast_year
-        else:
-            raise ValueError(f"forecast_year must be one of {supported_forecast_years}.")
+        self.save_data = presets.save_data
 
-        current_dir = os.path.dirname(__file__)
-        yaml_path = os.path.join(current_dir, "lsst_desc_parameters.yaml")
+        self.nz = SRDRedshiftDistributions(presets)
+        self.source_nz = np.array(self.nz.source_sample(save_file=False), dtype=np.float64)
+        self.lens_nz = np.array(self.nz.lens_sample(save_file=False), dtype=np.float64)
 
-        # Load the YAML file
-        with open(yaml_path, "r") as f:
-            lsst_desc_parameters = yaml.load(f, Loader=yaml.FullLoader)
-
-        self.lens_parameters = lsst_desc_parameters["lens_sample"][self.forecast_year]
-        self.source_parameters = lsst_desc_parameters["source_sample"][self.forecast_year]
-
-        self.nz = SRDRedshiftDistributions(self.redshift_range, forecast_year)
-        self.source_nz = np.array(self.nz.source_sample(), dtype=np.float64)
-        self.lens_nz = np.array(self.nz.lens_sample(), dtype=np.float64)
-
-        self.bin = TomographicBinning(self.redshift_range, self.forecast_year)
-        self.lens_bins = self.bin.lens_bins(perform_binning=self.perform_binning)
-        self.source_bins = self.bin.source_bins(perform_binning=self.perform_binning)
+        self.bin = TomographicBinning(presets)
+        self.lens_bins = self.bin.lens_bins(save_file=False)
+        self.source_bins = self.bin.source_bins(save_file=False)
 
     def get_ia_bias(self):
         # For now just simple constant IA bias
@@ -51,6 +42,10 @@ class Metrics:
     def cosmic_shear_cls(self, include_ia=True):
         ia_bias = self.get_ia_bias() if include_ia else None
         correlations = self.get_correlation_pairs()["cosmic_shear"]
+        self.save_data("cosmic_shear_correlations",
+                       correlations,
+                       dir="angular_power_spectra",
+                       include_ccl_version=False)
 
         cls_list = []
         for idx_1, idx_2 in correlations:
@@ -66,12 +61,22 @@ class Metrics:
 
         # Stack into a numpy array of shape (num_ells, num_cls)
         cls_array = np.column_stack(cls_list)
+        # Save the data with version information
+        self.save_data("cosmic_shear_cls",
+                       cls_array,
+                       dir="angular_power_spectra",
+                       include_ccl_version=True,
+                       extra_info=self.get_extra_info())
         return cls_array
 
     def galaxy_clustering_cls(self, include_gbias=True):
         gbias = self.get_gbias() if include_gbias else None
 
         correlations = self.get_correlation_pairs()["galaxy_clustering"]
+        self.save_data("galaxy_clustering_correlations",
+                       correlations,
+                       dir="angular_power_spectra",
+                       include_ccl_version=False)
 
         cls_list = []
 
@@ -79,15 +84,21 @@ class Metrics:
             tracer1 = ccl.NumberCountsTracer(self.cosmology,
                                              has_rsd=False,
                                              dndz=(self.redshift_range, self.lens_bins[idx_1]),
-                                             bias=(self.redshift_range, np.full_like(self.redshift_range, 1.0)))
+                                             bias=gbias)
             tracer2 = ccl.NumberCountsTracer(self.cosmology,
                                              has_rsd=False,
                                              dndz=(self.redshift_range, self.lens_bins[idx_2]),
-                                             bias=(self.redshift_range, np.full_like(self.redshift_range, 1.0)))
+                                             bias=gbias)
 
             cls_list.append(ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells))
 
         cls_array = np.column_stack(cls_list)
+        # Save the data with version information
+        self.save_data("galaxy_clustering_cls",
+                       cls_array,
+                       dir="angular_power_spectra",
+                       include_ccl_version=True,
+                       extra_info=self.get_extra_info())
         return cls_array
 
     def comoving_radial_distance(self):
@@ -197,4 +208,6 @@ class Metrics:
 
                 return selected_pairs
 
+    def get_extra_info(self):
 
+        return f"zmax{self.redshift_max}_res{self.redshift_resolution}"

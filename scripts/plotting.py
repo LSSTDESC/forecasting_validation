@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import cmasher as cmr
-from scripts.metrics import Metrics
 
 
 def get_colors(data, cmap="cmr.pride", cmap_range=(0.15, 0.85)):
@@ -32,18 +31,15 @@ def compare_two_data_vector_sets_absolute(data_vector_1,
 
 def compare_two_data_vector_sets_relative(data_vector_1,
                                           data_vector_2,
-                                          ells_1,
-                                          ells_2,
+                                          ells,
                                           cmap_1="cmr.pride",
-                                          cmap_2="cmr.pride",
                                           label_1="X",
                                           label_2="Y"
                                           ):
-    colors_1 = get_colors(data_vector_1, cmap=cmap_1, cmap_range=(0.15, 0.85))
-    colors_2 = get_colors(data_vector_2, cmap=cmap_2, cmap_range=(0.15, 0.85))
+    colors = get_colors(data_vector_1, cmap=cmap_1, cmap_range=(0.15, 0.85))
 
     for i in range(data_vector_1.shape[1]):  # Loop over 15 cls
-        plt.plot(ells_1, data_vector_1[:, i] / data_vector_2[:, i] - 1, c=colors_1[3])
+        plt.plot(ells, data_vector_1[:, i] / data_vector_2[:, i] - 1, c=colors[3])
         plt.axhline(0, c="gray")
 
     plt.plot([], [], c="white", label=f"X: {label_1} \n Y: {label_2}")
@@ -82,7 +78,14 @@ def plot_comoving_distance_comparison(abs_diff, rel_diff, redshift_fine):
     plt.show()
 
 
-def plot_bin_centers_subplots(bin_centers_resolutions, bin_type="source", percentage=None, marker_size=5, stability_steps=5):
+def plot_bin_centers_subplots(bin_centers_resolutions,
+                              zmax,
+                              forecast_year,
+                              bin_type="source",
+                              percentage=None,
+                              marker_size=5,
+                              stability_steps=10,
+                              fig_format=".pdf"):
     """
     Plot bin centers across different redshift resolutions in separate subplots with an optional averaged percentage band.
     Adds a vertical line at the resolution where the bin center stabilizes within the desired band for `stability_steps` consecutive steps.
@@ -98,7 +101,7 @@ def plot_bin_centers_subplots(bin_centers_resolutions, bin_type="source", percen
     resolutions = sorted(map(int, bin_centers_resolutions.keys()))
 
     # Get the number of bins from the first resolution's bin centers
-    bin_keys = list(bin_centers_resolutions[str(resolutions[0])][f"{bin_type}_bin_centers"].keys())
+    bin_keys = list(bin_centers_resolutions[resolutions[0]][f"{bin_type}_bin_centers"].keys())
     num_bins = len(bin_keys)
     colors = get_colors(bin_keys)
 
@@ -112,11 +115,13 @@ def plot_bin_centers_subplots(bin_centers_resolutions, bin_type="source", percen
 
     # Plot each bin center in a separate subplot with optional averaged band
     for i, bin_key in enumerate(bin_keys):
+        # Access `bin_centers_resolutions` with `res` as an integer key
         bin_center_values = [
-            bin_centers_resolutions[str(res)][f"{bin_type}_bin_centers"][bin_key] for res in resolutions
+            bin_centers_resolutions[res][f"{bin_type}_bin_centers"][bin_key] for res in resolutions
         ]
         axes[i].plot(resolutions, bin_center_values, marker='o', markersize=marker_size, c=colors[i])
-        axes[i].set_ylabel(f"bin {bin_key+1} centre")
+        axes[i].set_ylabel(f"bin {bin_key + 1} centre")
+
         #axes[i].legend(fontsize=18)
 
         # If percentage is provided, calculate and plot the averaged band
@@ -147,11 +152,14 @@ def plot_bin_centers_subplots(bin_centers_resolutions, bin_type="source", percen
     axes[-1].set_xlabel("redshift resolution", fontsize=18)
 
     plt.tight_layout(rect=[0, 0, 1, 0.96])
-    plt.show()
+    fig_name = f"{bin_type}_bin_centers_sweep_zmax{zmax}_y{forecast_year}{fig_format}"
+    plt.savefig(f"plots_output/{fig_name}")
 
 
-def plot_stabilization_vs_percentage(bin_centers_resolutions, bin_type="source", percentages=(1, 5, 10, 15),
-                                     stability_steps=5):
+def plot_stabilization_vs_percentage(bin_centers_resolutions,
+                                     bin_type="source",
+                                     percentages=(1, 5, 10, 15),
+                                     stability_steps=10):
     """
     Plot the resolution at which bin centers stabilize across different percentage bands.
 
@@ -166,7 +174,6 @@ def plot_stabilization_vs_percentage(bin_centers_resolutions, bin_type="source",
 
     # Get the number of bins from the first resolution's bin centers
     bin_keys = list(bin_centers_resolutions[str(resolutions[0])][f"{bin_type}_bin_centers"].keys())
-    num_bins = len(bin_keys)
     colors = get_colors(bin_keys)
 
     # Prepare a figure
@@ -211,3 +218,4 @@ def plot_stabilization_vs_percentage(bin_centers_resolutions, bin_type="source",
 
     plt.tight_layout()
     plt.show()
+

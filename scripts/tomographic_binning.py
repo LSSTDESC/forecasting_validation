@@ -1,66 +1,50 @@
-#  Niko Sarcevic
-#  nikolina.sarcevic@gmail.com
-#  github.com/nikosarcevic
-#  ----------
-
-import os
 import numpy as np
-import pandas
-from scipy.integrate import simpson, cumulative_trapezoid
+from scipy.integrate import cumulative_trapezoid
 from scipy.special import erf
-import yaml
 from scripts.srd_redshift_distributions import SRDRedshiftDistributions
+from scripts.presets import Presets
 
 
+# noinspection PyMethodMayBeStatic,DuplicatedCode
 class TomographicBinning:
+    """
+    Performs the slicing of the input redshift distribution into tomographic bins.
+    The binning algorithm follows the LSST DESC prescription. For more details, see
+    the LSST DESC Science Requirements Document (SRD) Appendix D (link to paper:
+    https://arxiv.org/abs/1809.01669).
+    The methods allow for slicing of the initial redshift distribution into a source or
+    lens galaxy sample for the appropriate LSST DESC forecast year (year 1 or year 10).
 
-    def __init__(self,
-                 redshift_range,
-                 forecast_year="1",
-                 perform_binning=True):
-        """
-        Performs the slicing of the input redshift distribution into tomographic bins.
-        The binning algorithm follows the LSST DESC prescription. For more details, see
-        the LSST DESC Science Requirements Document (SRD) Appendix D (link to paper:
-        https://arxiv.org/abs/1809.01669).
-        The methods allow for slicing of the initial redshift distribution into a source or
-        lens galaxy sample for the appropriate LSST DESC forecast year (year 1 or year 10).
+    ...
+    Attributes
+    ----------
+    redshift_range: array
+        An interval of redshifts for which
+        the redshift distribution is generated
+        redshift_range
+    forecast_year: str
+        year that corresponds to the SRD forecast. Accepted values
+        are "1" and "10"
+    """
 
-        ...
-        Attributes
-        ----------
-        redshift_range: array
-            An interval of redshifts for which
-            the redshift distribution is generated
-            redshift_range
-        forecast_year: str
-            year that corresponds to the SRD forecast. Accepted values
-            are "1" and "10"
-        """
+    def __init__(self, presets: Presets):
+        if not isinstance(presets, Presets):
+            raise TypeError(f"Expected a Presets object, but received {type(presets).__name__}.")
+        self.forecast_year = presets.forecast_year
+        self.redshift_range = presets.redshift_range
 
-        supported_forecast_years = {"1", "10"}
-        if forecast_year in supported_forecast_years:
-            self.forecast_year = forecast_year
-        else:
-            raise ValueError(f"forecast_year must be one of {supported_forecast_years}.")
+        self.lens_params = presets.lens_parameters
+        self.source_params = presets.source_parameters
 
-        self.redshift_range = np.array(redshift_range, dtype=np.float64)
-        self.forecast_year = forecast_year
-
-        current_dir = os.path.dirname(__file__)
-        yaml_path = os.path.join(current_dir, "lsst_desc_parameters.yaml")
-
-        # Load the YAML file
-        with open(yaml_path, "r") as f:
-            self.lsst_desc_parameters = yaml.load(f, Loader=yaml.FullLoader)
-
-        self.lens_params = self.lsst_desc_parameters["lens_sample"][self.forecast_year]
-        self.source_params = self.lsst_desc_parameters["source_sample"][self.forecast_year]
+        self.save_data = presets.save_data
+        self.perfom_binning = presets.perform_binning
 
         # Load the redshift distributions with high precision
-        self.nz = SRDRedshiftDistributions(self.redshift_range, forecast_year)
-        self.source_nz = np.array(self.nz.source_sample(), dtype=np.float64)
-        self.lens_nz = np.array(self.nz.lens_sample(), dtype=np.float64)
+        self.nz = SRDRedshiftDistributions(presets)
+        self.source_nz = np.array(self.nz.source_sample(save_file=False), dtype=np.float64)
+        self.lens_nz = np.array(self.nz.lens_sample(save_file=False), dtype=np.float64)
+
+        self.save_data = presets.save_data
 
     def true_redshift_distribution(self, upper_edge, lower_edge, variance, bias, redshift_distribution):
         """A function that returns the true redshift distribution of a galaxy sample.
@@ -75,7 +59,7 @@ class TomographicBinning:
                lower_edge (float): lower edge of the redshift bin
                variance (float): variance of the photometric distribution
                bias (float): bias of the photometric distribution
-                redshift_distribution (array): overall galaxy redshift distribution
+               redshift_distribution (array): overall galaxy redshift distribution
             Returns:
                 true_redshift_distribution (array): true redshift distribution of a galaxy sample"""
         # Calculate the scatter
@@ -117,22 +101,27 @@ class TomographicBinning:
 
         return [redshift_range[0]] + bin_edges + [redshift_range[-1]]
 
-    def source_bins(self, normalised=True, perform_binning=True, save_file=True, file_format='npy'):
-        """Split the initial redshift distribution of source galaxies into tomographic bins or return the original distribution.
+    def source_bins(self, normalized=True, perform_binning=True, save_file=True, tolerance=0.01):
+        """
+        Split the initial redshift distribution of source galaxies into tomographic bins or return the original distribution.
 
         For LSST DESC, sources are split into 5 tomographic bins for both year 1 and year 10 forecasts,
         with equal numbers of galaxies in each bin.
 
         Parameters:
-            normalised (bool): Normalize each bin's redshift distribution independently (default True).
-            perform_binning (bool): Perform binning (default True). If False, return the original distribution in dictionary format.
+            normalized (bool): Normalize each bin's redshift distribution independently (default True).
+            perform_binning (bool): Perform binning (default True). If False, return the original
+                                    distribution in dictionary format.
             save_file (bool): Option to save the output file (default True).
-            file_format (str): Format of the output file, 'csv' or 'npy' (default 'npy').
+            ttolerance (float): Acceptable deviation for galaxy fraction between bins as a percentage
+                                (e.g., 1 for 1% tolerance).
 
         Returns:
             dict: Source galaxy sample, binned or original distribution.
-        """
 
+        Raises:
+            ValueError: If the number of galaxies in each bin deviates beyond the specified tolerance.
+        """
         if not perform_binning:
             # Return the original distribution in a dictionary format without binning
             return {0: self.source_nz}
@@ -154,22 +143,45 @@ class TomographicBinning:
             dist = self.true_redshift_distribution(x1, x2, z_variance, z_bias, self.source_nz)
 
             # Normalize each bin individually if normalisation is True
-            if normalised:
-                norm_factor = simpson(dist, self.redshift_range)
+            if normalized:
+                norm_factor = np.trapz(dist, x=self.redshift_range)
                 dist /= norm_factor  # Normalize the distribution
 
             source_redshift_distribution_dict[index] = dist
+
+        # After constructing bins, check if the galaxy counts are approximately equal
+        fractions = self.get_galaxy_fraction_in_bin(source_redshift_distribution_dict)
+        mean_fraction = np.mean(fractions)
+
+        # Convert tolerance from percentage to fraction
+        tolerance_fraction = tolerance / 100
+
+        # Verify each bin's fraction is within tolerance
+        if not np.all(np.abs(fractions - mean_fraction) <= mean_fraction * tolerance_fraction):
+            raise ValueError(
+                "Galaxy counts across source bins are not approximately equal within the specified tolerance. "
+                f"Bin fractions: {fractions}, Mean fraction: {mean_fraction}"
+            )
+
+        cumulative_count = np.sum(fractions) * np.trapz(self.source_nz, self.redshift_range)
+        expected_total_count = np.trapz(self.source_nz, self.redshift_range)
+        if not np.isclose(cumulative_count, expected_total_count, atol=1e-3):
+            raise ValueError("Cumulative galaxy count across bins does not match the expected total galaxy count.")
 
         # Create a combined dictionary with the redshift range and bins
         combined_data = {'redshift_range': self.redshift_range, 'bins': source_redshift_distribution_dict}
 
         # Save the data if required
         if save_file:
-            self.save_to_file(combined_data, "source", file_format)
+            self.save_data("source_bins",
+                           combined_data,
+                           dir="redshift_distributions",
+                           include_ccl_version=False)
 
         return source_redshift_distribution_dict
 
-    def lens_bins(self, normalised=True, perform_binning=True, save_file=True, file_format='npy'):
+
+    def lens_bins(self, normalized=True, perform_binning=True, save_file=True):
         """
         Split the initial redshift distribution of lens galaxies (lenses) into tomographic bins or return the original distribution.
 
@@ -177,10 +189,9 @@ class TomographicBinning:
         with variance 0.03 and z_bias of zero.
 
         Parameters:
-            normalised (bool): Normalize each bin's redshift distribution independently (default True).
+            normalized (bool): Normalize each bin's redshift distribution independently (default True).
             perform_binning (bool): Perform binning (default True). If False, return the original distribution in dictionary format.
             save_file (bool): Option to save the output file (default True).
-            file_format (str): Format of the output file, 'csv' or 'npy' (default 'npy').
 
         Returns:
             dict: Lens galaxy sample, binned or original distribution.
@@ -207,8 +218,8 @@ class TomographicBinning:
             dist = self.true_redshift_distribution(x1, x2, z_variance, z_bias, self.lens_nz)
 
             # Normalize each bin individually if normalisation is True
-            if normalised:
-                norm_factor = simpson(dist, self.redshift_range)
+            if normalized:
+                norm_factor = np.trapz(dist, x=self.redshift_range)
                 dist /= norm_factor  # Normalize the distribution
 
             lens_redshift_distribution_dict[index] = dist
@@ -218,51 +229,159 @@ class TomographicBinning:
 
         # Save the distributions to a file if specified
         if save_file:
-            self.save_to_file(combined_data, "lens", file_format)
+            self.save_data("lens_bins",
+                           combined_data,
+                           dir="redshift_distributions",
+                           include_ccl_version=False)
 
         return lens_redshift_distribution_dict
 
-    def get_bin_centers(self, decimal_places=2, save_file=True):
-        """Method to calculate the bin centers for the source and lens galaxy samples.
-        The bin centers are calculated as the redshift value where
-        the redshift distribution is maximised.
-        The bin centers are rounded to the specified number of decimal places.
+    def get_bin_centers(self, bins_dict, decimal_places=2):
+        """
+        Calculate and round the bin centers for all bins in a dictionary based on the maximum of each bin's distribution.
 
-        Arguments:
-            decimal_places (int): number of decimal places to round the bin centers to (defaults to 2)
-            save_file (bool): option to save the output as a .npy file (defaults to True)
-        Returns: a nested dictionary of bin centers for source and lens galaxy samples
-         for year 1 and year 10 forecast (keys are the forecast years).
-            """
-        bin_centers = {"sources": [], "lenses": []}
+        Parameters:
+            bins_dict (dict): A dictionary where each key represents a bin and each value is the redshift distribution for that bin.
+            decimal_places (int): Number of decimal places to round the bin centers.
 
-        # Calculate bin centers for sources
-        source_bins = self.source_bins(normalised=True, save_file=False)
-        for index in range(self.source_params["n_tomo_bins"]):
-            bin_center = self.find_bin_center(source_bins[index], self.redshift_range, decimal_places)
-            bin_centers["sources"].append(bin_center)
-
-        # Calculate bin centers for lenses
-        lens_bins = self.lens_bins(normalised=True, save_file=False)
-        for index in range(self.lens_params["n_tomo_bins"]):
-            bin_center = self.find_bin_center(lens_bins[index], self.redshift_range, decimal_places)
-            bin_centers["lenses"].append(bin_center)
-
-        if save_file:
-            # Save to .npy file if save_file is True
-            np.save(f'data_output/srd_bin_centers_y_{self.forecast_year}.npy', bin_centers)
-
+        Returns:
+            dict: A dictionary with bin keys and their corresponding rounded bin centers.
+        """
+        bin_centers = {}
+        for bin_key, bin_distribution in bins_dict.items():
+            max_index = np.argmax(bin_distribution)
+            bin_centers[bin_key] = round(self.redshift_range[max_index], decimal_places)
         return bin_centers
 
-    def find_bin_center(self, bin_distribution, redshift_range, decimal_places=2):
-        """Helper method to calculate and round the bin center."""
-        max_index = np.argmax(bin_distribution)
-        return round(redshift_range[max_index], decimal_places)
+    def lens_bin_centers(self, decimal_places=2):
+        """
+        Calculate and round the bin centers for the lens bins.
 
-    def save_to_file(self, data, name, file_format="npy"):
+        Parameters:
+            decimal_places (int): Number of decimal places to round the bin centers.
 
-        if file_format == "npy":
-            np.save(f"data_output/srd_{name}_bins_year_{self.forecast_year}.npy", data)
-        elif file_format == "csv":
-            dndz_df = pandas.DataFrame(data)
-            dndz_df.to_csv(f"data_output/srd_{name}_bins_year_{self.forecast_year}.csv", index=False)
+        Returns:
+            dict: A dictionary with lens bin keys and their corresponding rounded bin centers.
+        """
+        lens_bins = self.lens_bins(save_file=False)
+        return self.get_bin_centers(lens_bins, decimal_places)
+
+    def source_bin_centers(self, decimal_places=2):
+        """
+        Calculate and round the bin centers for the source bins.
+
+        Parameters:
+            decimal_places (int): Number of decimal places to round the bin centers.
+
+        Returns:
+            dict: A dictionary with source bin keys and their corresponding rounded bin centers.
+        """
+        source_bins = self.source_bins(save_file=False)
+        return self.get_bin_centers(source_bins, decimal_places)
+
+    def get_galaxy_fraction_in_bin(self, bin_distribution):
+        """
+        Calculate the fraction of the total galaxies within each bin's redshift range.
+
+        Parameters:
+            bin_distribution (np.ndarray or dict): The redshift distribution for each bin.
+                If a dict, the function will compute for each bin.
+
+        Returns:
+            fraction_in_bin (np.ndarray): Array of fractions of galaxies in each bin.
+        """
+
+        def compute_fraction(distribution, total_distribution):
+            # Integrate the bin distribution over the redshift range
+            bin_integral = np.trapz(distribution, self.redshift_range)
+
+            # Calculate the fraction for this bin relative to the total distribution
+            bin_fraction = bin_integral / np.trapz(total_distribution, self.redshift_range)
+            return bin_fraction
+
+        # Infer the number of bins based on the input bin_distribution
+        if isinstance(bin_distribution, dict):
+            bin_distributions = np.array(list(bin_distribution.values()))  # Convert dict to array of bins
+        else:
+            bin_distributions = bin_distribution  # If already an array, use directly
+
+        # Calculate the total distribution by summing over all inferred bins
+        total_distribution = np.sum(bin_distributions, axis=0)
+
+        # Compute the fraction for each bin
+        fractions = [compute_fraction(distr, total_distribution) for distr in bin_distributions]
+
+        return np.array(fractions)
+
+    def fraction_of_lens_galaxies_in_bin(self):
+        """
+        Calculate the fraction of lens galaxies in each lens bin.
+
+        Returns:
+            np.ndarray: Array of fractions of lens galaxies in each lens bin.
+        """
+        lens_bins = self.lens_bins(save_file=False)
+        return self.get_galaxy_fraction_in_bin(lens_bins)
+
+    def fraction_of_source_galaxies_in_bin(self):
+        """
+        Calculate the fraction of source galaxies in each source bin.
+
+        Returns:
+            np.ndarray: Array of fractions of source galaxies in each source bin.
+        """
+        source_bins = self.source_bins(save_file=False)
+        return self.get_galaxy_fraction_in_bin(source_bins)
+
+    def calculate_average_galaxies_per_bin(self, binned_distribution, number_density):
+        """
+        Calculate the average number of galaxies for each tomo bin using the binned distribution.
+
+        Parameters:
+            binned_distribution (dict or np.ndarray): Redshift distribution for each bin.
+                If a dict, the function will compute for each bin.
+            number_density (float): The number density of galaxies per arcminute squared.
+
+        Returns:
+            avg_galaxies_per_bin (np.ndarray): Array of average number of galaxies for each bin.
+        """
+
+        def compute_nz_avg(distribution):
+            # Integrate the distribution over the redshift range
+            total_integral = np.trapz(distribution, self.redshift_range)
+
+            # Calculate fraction and total number of galaxies in the bin
+            fraction_in_bin = total_integral
+            fraction_in_bin /= np.trapz(np.concatenate(list(binned_distribution.values())), self.redshift_range)
+            total_number_of_galaxies = total_integral * number_density
+
+            # Calculate average number of galaxies in this bin
+            return fraction_in_bin * total_number_of_galaxies
+
+        # If binned_distribution is a dictionary (multiple bins), calculate for each bin
+        if isinstance(binned_distribution, dict):
+            avg_galaxies_per_bin = [compute_nz_avg(distr) for distr in binned_distribution.values()]
+            return np.array(avg_galaxies_per_bin)
+
+        # If a single bin is passed (as an array), compute directly
+        return np.array([compute_nz_avg(binned_distribution)])
+
+    def number_of_galaxies_in_lens_bins(self):
+        """
+        Calculate the average number of galaxies in each lens bin.
+
+        Returns:
+            np.ndarray: Array of average number of galaxies in each lens bin.
+        """
+        lens_bins = self.lens_bins(save_file=False)
+        return self.calculate_average_galaxies_per_bin(lens_bins, self.lens_params["number_density"])
+
+    def number_of_galaxies_in_source_bins(self):
+        """
+        Calculate the average number of galaxies in each source bin.
+
+        Returns:
+            np.ndarray: Array of average number of galaxies in each source bin.
+        """
+        source_bins = self.source_bins(save_file=False)
+        return self.calculate_average_galaxies_per_bin(source_bins, self.source_params["number_density"])

@@ -1,19 +1,10 @@
-
-#  Niko Sarcevic
-#  nikolina.sarcevic@gmail.com
-#  github/nikosarcevic
-#  ----------
-
-import numpy as np
 from numpy import exp
-import pandas
 from scipy.integrate import simpson
-import yaml
-import os
+from .presets import Presets
 
 
-# noinspection PyDefaultArgument
-class SRDRedshiftDistributions(object):
+# noinspection PyDefaultArgument,PyMethodMayBeStatic
+class SRDRedshiftDistributions:
     """
         Generate the LSST DESC type redshift distributions
         for lens and source sample for year 1 and year 10.
@@ -31,27 +22,16 @@ class SRDRedshiftDistributions(object):
             are "1" and "10"
          """
 
-    def __init__(self,
-                 redshift_range,
-                 forecast_year="1"):
+    def __init__(self, presets: Presets):
+        if not isinstance(presets, Presets):
+            raise TypeError(f"Expected a Presets object, but received {type(presets).__name__}.")
+        self.forecast_year = presets.forecast_year
+        self.redshift_range = presets.redshift_range
 
-        self.redshift_range = redshift_range
+        self.lens_parameters = presets.lens_parameters
+        self.source_parameters = presets.source_parameters
 
-        supported_forecast_years = {"1", "10"}
-        if forecast_year in supported_forecast_years:
-            self.forecast_year = forecast_year
-        else:
-            raise ValueError(f"forecast_year must be one of {supported_forecast_years}.")
-
-        current_dir = os.path.dirname(__file__)
-        yaml_path = os.path.join(current_dir, "lsst_desc_parameters.yaml")
-
-        # Load the YAML file
-        with open(yaml_path, "r") as f:
-            self.lsst_desc_parameters = yaml.load(f, Loader=yaml.FullLoader)
-
-        self.source_parameters = self.lsst_desc_parameters["source_sample"][self.forecast_year]
-        self.lens_parameters = self.lsst_desc_parameters["lens_sample"][self.forecast_year]
+        self.save_data = presets.save_data
 
     def smail_type_distribution(self,
                                 redshift_range,
@@ -85,48 +65,42 @@ class SRDRedshiftDistributions(object):
 
         return redshift_distribution
 
-    def source_sample(self, normalised=True, save_file=True, file_format="npy"):
-        alpha = self.source_parameters["alpha"]
-        beta = self.source_parameters["beta"]
-        pivot_redshift = self.source_parameters["z_0"]
+    def source_sample(self, normalized=True, save_file=True):
+
         redshift_distribution = self.smail_type_distribution(self.redshift_range,
-                                                             pivot_redshift,
-                                                             alpha,
-                                                             beta)
-        if normalised:
+                                                             self.source_parameters["z_0"],
+                                                             self.source_parameters["alpha"],
+                                                             self.source_parameters["beta"])
+        if normalized:
             normalisation = simpson(redshift_distribution, self.redshift_range)
             redshift_distribution /= normalisation
 
         combined_data = {"redshift": self.redshift_range, "dndz": redshift_distribution}
 
         if save_file:
-            self.save_to_file(combined_data, "source_sample", file_format)
+            self.save_data("source_sample",
+                           combined_data,
+                           dir="redshift_distributions",
+                           include_ccl_version=False)
 
         return redshift_distribution
 
-    def lens_sample(self, normalised=True, save_file=True, file_format="npy"):
-        alpha = self.lens_parameters["alpha"]
-        beta = self.lens_parameters["beta"]
-        pivot_redshift = self.lens_parameters["z_0"]
+    def lens_sample(self, normalized=True, save_file=True):
+
         redshift_distribution = self.smail_type_distribution(self.redshift_range,
-                                                             pivot_redshift,
-                                                             alpha,
-                                                             beta)
-        if normalised:
+                                                             self.lens_parameters["z_0"],
+                                                             self.lens_parameters["alpha"],
+                                                             self.lens_parameters["beta"])
+        if normalized:
             normalisation = simpson(redshift_distribution, self.redshift_range)
             redshift_distribution /= normalisation
 
         combined_data = {"redshift": self.redshift_range, "dndz": redshift_distribution}
 
         if save_file:
-            self.save_to_file(combined_data, "lens_sample", file_format)
+            self.save_data("lens_sample",
+                           combined_data,
+                           dir="redshift_distributions",
+                           include_ccl_version=False)
 
         return redshift_distribution
-
-    def save_to_file(self, data, name, file_format="npy"):
-
-        if file_format == "npy":
-            np.save(f"data_output/srd_{name}_dndz_year_{self.forecast_year}.npy", data)
-        elif file_format == "csv":
-            dndz_df = pandas.DataFrame(data)
-            dndz_df.to_csv(f"data_output/srd_{name}_dndz_year_{self.forecast_year}.csv", index=False)
