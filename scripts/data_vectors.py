@@ -106,26 +106,6 @@ class DataVectors:
         scale_factor = 1 / (1 + self.redshift_range)
         return ccl.comoving_radial_distance(self.cosmology, scale_factor)
 
-    def compare_comoving_radial_distances(self, other_redshift_range):
-
-        # Compute distances for both redshift ranges
-        chi_self = self.comoving_radial_distance()
-        scale_factor_other = 1 / (1 + other_redshift_range)
-        chi_other = ccl.comoving_radial_distance(self.cosmology, scale_factor_other)
-
-        # Define a fine grid for comparison
-        redshift_fine = np.linspace(0, max(self.redshift_range.max(), other_redshift_range.max()), 5000)
-
-        # Use numpy.interp for interpolation on the fine grid
-        chi_self_interp = np.interp(redshift_fine, self.redshift_range, chi_self)
-        chi_other_interp = np.interp(redshift_fine, other_redshift_range, chi_other)
-
-        # Calculate absolute and relative differences
-        abs_diff = np.abs(chi_self_interp - chi_other_interp)
-        rel_diff = abs_diff / np.abs(chi_self_interp)
-
-        return abs_diff, rel_diff
-
     def cosmic_shear_correlations(self):
         """
         Calculates the source-source bin pairs for cosmic shear.
@@ -210,4 +190,4 @@ class DataVectors:
 
     def get_extra_info(self):
 
-        return f"zmax{self.redshift_max}_res{self.redshift_resolution}"
+        return f"zmax{self.redshift_max}_zres{self.redshift_resolution}"
