@@ -1,5 +1,5 @@
+import numpy as np
 from numpy import exp
-from scipy.integrate import simpson
 from .presets import Presets
 
 
@@ -72,7 +72,7 @@ class SRDRedshiftDistributions:
                                                              self.source_parameters["alpha"],
                                                              self.source_parameters["beta"])
         if normalized:
-            normalisation = simpson(redshift_distribution, self.redshift_range)
+            normalisation = np.trapz(redshift_distribution, x=self.redshift_range)
             redshift_distribution /= normalisation
 
         combined_data = {"redshift": self.redshift_range, "dndz": redshift_distribution}
@@ -92,7 +92,7 @@ class SRDRedshiftDistributions:
                                                              self.lens_parameters["alpha"],
                                                              self.lens_parameters["beta"])
         if normalized:
-            normalisation = simpson(redshift_distribution, self.redshift_range)
+            normalisation = np.trapz(redshift_distribution, x=self.redshift_range)
             redshift_distribution /= normalisation
 
         combined_data = {"redshift": self.redshift_range, "dndz": redshift_distribution}
