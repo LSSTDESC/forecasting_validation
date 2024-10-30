@@ -173,7 +173,7 @@ def plot_stabilization_vs_percentage(bin_centers_resolutions,
     resolutions = sorted(map(int, bin_centers_resolutions.keys()))
 
     # Get the number of bins from the first resolution's bin centers
-    bin_keys = list(bin_centers_resolutions[str(resolutions[0])][f"{bin_type}_bin_centers"].keys())
+    bin_keys = list(bin_centers_resolutions[(resolutions[0])][f"{bin_type}_bin_centers"].keys())
     colors = get_colors(bin_keys)
 
     # Prepare a figure
@@ -185,7 +185,7 @@ def plot_stabilization_vs_percentage(bin_centers_resolutions,
 
         for percentage in percentages:
             bin_center_values = [
-                bin_centers_resolutions[str(res)][f"{bin_type}_bin_centers"][bin_key] for res in resolutions
+                bin_centers_resolutions[(res)][f"{bin_type}_bin_centers"][bin_key] for res in resolutions
             ]
             avg_bin_center = np.mean(bin_center_values)
             margin = avg_bin_center * (percentage / 100)
