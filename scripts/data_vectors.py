@@ -39,14 +39,18 @@ class DataVectors:
         gbias = (self.redshift_range, np.full_like(self.redshift_range, 1.0))
         return gbias
 
-    def cosmic_shear_cls(self, include_ia=True):
+    def cosmic_shear_cls(self, include_ia=True, want_all = False):
         ia_bias = self.get_ia_bias() if include_ia else None
         correlations = self.get_correlation_pairs()["cosmic_shear"]
+        if want_all:
+            correlations = self.get_correlation_pairs()["all"]
         self.save_data("cosmic_shear_correlations",
                        correlations,
                        dir="angular_power_spectra",
                        include_ccl_version=False)
-
+        
+        if want_all:
+            cls_mat = np.zeros((len(self.ells),len(self.source_bins), len(self.source_bins)))
         cls_list = []
         for idx_1, idx_2 in correlations:
             tracer1 = ccl.WeakLensingTracer(self.cosmology,
@@ -58,7 +62,9 @@ class DataVectors:
 
             # Compute Cl and append it to the list
             cls_list.append(ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells))
-
+            if want_all:
+                cls_mat[:,idx_1,idx_2] = ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells)
+            
         # Stack into a numpy array of shape (num_ells, num_cls)
         cls_array = np.column_stack(cls_list)
         # Save the data with version information
@@ -67,18 +73,66 @@ class DataVectors:
                        dir="angular_power_spectra",
                        include_ccl_version=True,
                        extra_info=self.get_extra_info())
-        return cls_array
+        if want_all:
+            return cls_mat
+        else:
+            return cls_array
+    
+    def galaxy_galaxy_lensing_cls(self, include_gbias=True, include_ia=True, want_all = False):
+        ia_bias = self.get_ia_bias() if include_ia else None
+        gbias = self.get_gbias() if include_gbias else None
+        correlations = self.get_correlation_pairs()["galaxy_galaxy_lensing"]
+        if want_all:
+            correlations = self.get_correlation_pairs()["all"]
+        self.save_data("galaxy_galaxy_lensing",
+                       correlations,
+                       dir="angular_power_spectra",
+                       include_ccl_version=False)
+        cls_list = []
+        if want_all:
+            cls_mat = np.zeros((len(self.ells),len(self.lens_bins), len(self.source_bins)))
 
-    def galaxy_clustering_cls(self, include_gbias=True):
+        for idx_1, idx_2 in correlations:
+            tracer1 = ccl.NumberCountsTracer(self.cosmology,
+                                             has_rsd=False,
+                                             dndz=(self.redshift_range, self.lens_bins[idx_1]),
+                                             bias=gbias)
+            tracer2 = ccl.WeakLensingTracer(self.cosmology,
+                                            dndz=(self.redshift_range, self.source_bins[idx_2]),
+                                            ia_bias=ia_bias)
+
+            # Compute Cl and append it to the list
+            cls_list.append(ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells))
+            if want_all:
+                cls_mat[:,idx_1,idx_2] = ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells)
+
+        # Stack into a numpy array of shape (num_ells, num_cls)
+        cls_array = np.column_stack(cls_list)
+        # Save the data with version information
+        self.save_data("galaxy_galaxy_lensing_cls",
+                       cls_array,
+                       dir="angular_power_spectra",
+                       include_ccl_version=True,
+                       extra_info=self.get_extra_info())
+        if want_all:
+            return cls_mat
+        else:
+            return cls_array
+    
+    def galaxy_clustering_cls(self, include_gbias=True, want_all = False):
         gbias = self.get_gbias() if include_gbias else None
 
         correlations = self.get_correlation_pairs()["galaxy_clustering"]
+        if want_all:
+            correlations = self.get_correlation_pairs()["all"]
         self.save_data("galaxy_clustering_correlations",
                        correlations,
                        dir="angular_power_spectra",
                        include_ccl_version=False)
 
         cls_list = []
+        if want_all:
+            cls_mat = np.zeros((len(self.ells),len(self.lens_bins), len(self.lens_bins)))
 
         for idx_1, idx_2 in correlations:
             tracer1 = ccl.NumberCountsTracer(self.cosmology,
@@ -91,6 +145,8 @@ class DataVectors:
                                              bias=gbias)
 
             cls_list.append(ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells))
+            if want_all:
+                cls_mat[:,idx_1,idx_2] = ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells)
 
         cls_array = np.column_stack(cls_list)
         # Save the data with version information
@@ -99,7 +155,10 @@ class DataVectors:
                        dir="angular_power_spectra",
                        include_ccl_version=True,
                        extra_info=self.get_extra_info())
-        return cls_array
+        if want_all:
+            return cls_mat
+        else:
+            return cls_array
 
     def get_wl_kernel(self, include_ia=True, return_chi=False):
         """
@@ -209,12 +268,29 @@ class DataVectors:
                 selected_pairs.append((source_keys[j], source_keys[i]))
         return selected_pairs
 
+    def all_correlations(self):
+        """
+        Calculates the source-source bin pairs for cosmic shear.
+
+        Returns:
+            list: List of all possible source-source bin pairs.
+        """
+
+        sources = self.source_bins
+        selected_pairs = []
+        source_keys = list(sources.keys())
+        for i in range(len(source_keys)):
+            for j in range(len(source_keys)):
+                selected_pairs.append((source_keys[j], source_keys[i]))
+        return selected_pairs
+
     def get_correlation_pairs(self):
 
         pairings = {
             "cosmic_shear": self.cosmic_shear_correlations(),
             "galaxy_galaxy_lensing": self.galaxy_galaxy_lensing_correlations(),
-            "galaxy_clustering": self.galaxy_clustering_correlations()
+            "galaxy_clustering": self.galaxy_clustering_correlations(),
+            "all": self.all_correlations(),
         }
 
         return pairings

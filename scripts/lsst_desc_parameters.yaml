@@ -52,6 +52,7 @@ source_sample: # source galaxy sample parameters
     z_0: 0.13  # pivot redshift (check eq. 5 in the SRD paper)
     mean_eff_z: 0.85  # mean effective redshift
     number_density: 10.  # number density of galaxies per arcmin^2
+    sigma_eps: 0.3  # ellipticity dispersion (total)
   "10": # year 10 source sample parameters
     limiting_magnitude: 25.3  # limiting magnitude THIS needs to be checked!
     sigma_z: 0.05  # photo-z variance (scatter = 0.05 * (1 + z))
@@ -62,4 +63,5 @@ source_sample: # source galaxy sample parameters
     z_0: 0.11  # pivot redshift (check eq. 5 in the SRD paper)
     mean_eff_z: 1.05  # mean effective redshift
     number_density: 27.  # number density of galaxies per arcmin^2
+    sigma_eps: 0.3  # ellipticity dispersion (total)
 ...
