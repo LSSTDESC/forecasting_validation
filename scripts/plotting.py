@@ -35,12 +35,12 @@ def compare_two_data_vector_sets_relative(data_vector_1,
                                           ells,
                                           cmap_1="cmr.pride",
                                           label_1="X",
-                                          label_2="Y"
-                                          ):
+                                          label_2="Y"):
+    num_colors = data_vector_1.shape[1]  # Number of colors needed for each `cls`
     colors = get_colors(data_vector_1, cmap=cmap_1, cmap_range=(0.15, 0.85))
 
-    for i in range(data_vector_1.shape[1]):  # Loop over 15 cls
-        plt.plot(ells, data_vector_1[:, i] / data_vector_2[:, i] - 1, c=colors[3])
+    for i in range(num_colors):
+        plt.plot(ells, data_vector_1[:, i] / data_vector_2[:, i] - 1, c=colors[i])
         plt.axhline(0, c="gray")
 
     plt.plot([], [], c="white", label=f"X: {label_1} \n Y: {label_2}")
