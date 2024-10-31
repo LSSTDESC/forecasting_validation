@@ -1,7 +1,7 @@
 import numpy as np
 from scripts.data_vectors import DataVectors
 from scripts.presets import Presets
-
+import matplotlib.pyplot as plt
 
 class DataVectorMetrics:
 
@@ -84,7 +84,7 @@ class DataVectorMetrics:
         for i_ell in range(len(delta_ell)):
             ell = self.presets.ells[i_ell] + delta_ell[i_ell]/2
             if has_gc:
-                signal = cl_gc[i_ell,:,:]
+                signal = np.copy(cl_gc[i_ell,:,:])
                 noise = signal + np.eye(len(cl_gc[i_ell,:,0]))/(self.presets.lens_parameters['number_density']*180**2/np.pi**2)
                 signal -= cl_gc_1[i_ell,:,:]
                 if has_cs:
@@ -103,9 +103,9 @@ class DataVectorMetrics:
                     signal -= np.block([[cl_gc_1[i_ell,:,:], ggl_1],
                                        [ggl_1.T, cl_cs_1[i_ell,:,:]]])
             else:
-                signal = cl_cs[i_ell,:,:]
+                signal = np.copy(cl_cs[i_ell,:,:])
                 noise = signal + np.eye(len(cl_cs[i_ell,:,0]))/(self.presets.source_parameters['number_density']*180**2/np.pi**2)/2*self.presets.source_parameters['sigma_eps']**2
                 signal -= cl_cs_1
             noise = np.linalg.inv(noise)
-            chi2_at_ell[i_ell] = delta_ell[i_ell]*(2*ell + 1)/2*self.presets.f_sky*np.trace((signal@noise)@(signal@noise))    
+            chi2_at_ell[i_ell] = delta_ell[i_ell]*(2*ell + 1)/2*self.presets.f_sky*np.trace((signal@noise)@(signal@noise))
         return np.sum(chi2_at_ell)  
