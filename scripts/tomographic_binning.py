@@ -385,3 +385,34 @@ class TomographicBinning:
         """
         source_bins = self.source_bins(save_file=False)
         return self.calculate_average_galaxies_per_bin(source_bins, self.source_params["number_density"])
+
+    def get_redshift_for_nz(self, nz_value, distribution_type):
+        """
+        Get the redshift corresponding to a specified n(z) value for either lens or source galaxies.
+
+        Parameters:
+            nz_value (float): The target n(z) value.
+            distribution_type (str): Type of distribution, either "source" or "lens".
+
+        Returns:
+            float: The redshift value at which n(z) matches nz_value, or None if not found.
+        """
+
+
+        # Select the appropriate redshift distribution based on the distribution type
+        if distribution_type == "sources":
+            nz_distribution = self.source_nz
+        elif distribution_type == "lenses":
+            nz_distribution = self.lens_nz
+        else:
+            raise ValueError("Invalid distribution type. Use 'source' or 'lens'.")
+
+        # Find the indices where n(z) matches nz_value
+        indices = np.where(nz_distribution == nz_value)[0]
+
+        if len(indices) == 0:
+            print("Specified n(z) value not found in the distribution.")
+            return None
+
+        # Return the corresponding redshift value
+        return self.redshift_range[indices[0]]
