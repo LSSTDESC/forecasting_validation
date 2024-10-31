@@ -101,6 +101,93 @@ class DataVectors:
                        extra_info=self.get_extra_info())
         return cls_array
 
+    def get_wl_kernel(self, include_ia=True, return_chi=False):
+        """
+        Compute the weak lensing (WL) kernel for each source bin.
+
+        Parameters:
+            include_ia (bool): Include intrinsic alignment bias if True.
+            return_chi (bool): Return the comoving radial distance array if True.
+
+        Returns:
+            tuple: Arrays of WL kernels for each source bin. If return_chi is True,
+                   also returns the comoving radial distance array (chi).
+        """
+        ia_bias = self.get_ia_bias() if include_ia else None
+        # Prepare lists to store kernels and chi values
+        kernel_list = []
+        chi_list = []
+
+        # Compute comoving radial distance once for the redshift range
+        chi = ccl.comoving_radial_distance(self.cosmology, 1 / (1 + self.redshift_range))
+
+        # Loop over each source bin
+        for idx in self.source_bins.keys():
+            # Initialize the WeakLensingTracer for each source bin
+            tracer = ccl.WeakLensingTracer(self.cosmology,
+                                           dndz=(self.redshift_range, self.source_bins[idx]),
+                                           ia_bias=ia_bias)
+            # Get kernel for the current source bin
+            k, chi_bin = tracer.get_kernel(chi)
+
+            # Store the kernel and chi for each bin
+            kernel_list.append(k)
+            chi_list.append(chi_bin)
+
+        # Convert lists to numpy arrays for easy handling
+        kernel_array = np.array(kernel_list)
+        chi_array = np.array(chi_list)
+
+        # Return kernels and optionally chi
+        if return_chi:
+            return kernel_array, chi_array
+        else:
+            return kernel_array
+
+    def get_nc_kernel(self, include_gbias=True, return_chi=False):
+        """
+        Compute the number counts (NC) kernel for each lens bin.
+
+        Parameters:
+            include_gbias (bool): Include galaxy bias if True.
+            return_chi (bool): Return the comoving radial distance array if True.
+
+        Returns:
+            tuple: Arrays of NC kernels for each lens bin. If return_chi is True,
+                   also returns the comoving radial distance array (chi).
+        """
+        gbias = self.get_gbias() if include_gbias else None
+        # Prepare lists to store kernels and chi values
+        kernel_list = []
+        chi_list = []
+
+        # Compute comoving radial distance once for the redshift range
+        chi = ccl.comoving_radial_distance(self.cosmology, 1 / (1 + self.redshift_range))
+
+        # Loop over each lens bin
+        for idx in self.lens_bins.keys():
+            # Initialize the NumberCountsTracer for each lens bin
+            tracer = ccl.NumberCountsTracer(self.cosmology,
+                                            dndz=(self.redshift_range, self.lens_bins[idx]),
+                                            bias=gbias,
+                                            has_rsd=False)
+            # Get kernel for the current lens bin
+            k = tracer.get_kernel(chi)
+
+            # Store the kernel and chi for each bin
+            kernel_list.append(k)
+            chi_list.append(chi)
+
+        # Convert lists to numpy arrays for easy handling
+        kernel_array = np.array(kernel_list)
+        chi_array = np.array(chi_list)
+
+        # Return kernels and optionally chi
+        if return_chi:
+            return kernel_array, chi_array
+        else:
+            return kernel_array
+
     def comoving_radial_distance(self):
 
         scale_factor = 1 / (1 + self.redshift_range)

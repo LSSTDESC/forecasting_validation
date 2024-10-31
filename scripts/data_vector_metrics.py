@@ -8,58 +8,62 @@ class DataVectorMetrics:
     def __init__(self, presets):
         if not isinstance(presets, Presets):
             raise TypeError(f"Expected a Presets object, but received {type(presets).__name__}.")
-        # Set attributes from presets
+        # Initialize presets and data vectors with initial redshift range from presets
         self.presets = presets
+        self.dv = DataVectors(presets)  # Store an instance of DataVectors for access to its methods
+        self.redshift_range = self.dv.redshift_range
 
-    def investigate_data_vector_stability(self,
-                                          cls_type="shear",
-                                          difference_type="relative"):
+    def get_kernel_peaks(self, kernel_array, redshift_range):
         """
-        General function to investigate stability of Cls across different redshift resolutions.
+        Calculate the peak redshifts and values for each kernel in the given kernel array.
+        """
+        peaks = []
+        for kernel in kernel_array:
+            peak_index = np.argmax(kernel)
+            peak_redshift = redshift_range[peak_index]
+            peak_value = kernel[peak_index]
+            peaks.append((peak_redshift, peak_value))
+        return peaks
+
+    def kernel_peaks_z_resolution_sweep(self, z_resolutions=None, include_ia=True, include_gbias=True, kernel_type="wl"):
+        """
+        Perform a parametric sweep of redshift resolutions, calculating kernel peaks for each resolution.
 
         Parameters:
-            cls_type: str, either "shear" for cosmic shear Cls or "clustering" for galaxy clustering Cls.
-            difference_type: str, one of "absolute", "relative", or "fractional" to specify the type of difference.
+            z_resolutions (list, optional): List of redshift resolutions to iterate over. If None, uses default range.
+            include_ia (bool): Include intrinsic alignment for WL kernels.
+            include_gbias (bool): Include galaxy bias for NC kernels.
+            kernel_type (str): Either "wl" for weak lensing or "nc" for number counts.
 
         Returns:
-            stability_metrics: dict with average differences in Cls between consecutive resolutions.
-            results: dict containing Cl values for each redshift resolution.
+            dict: A dictionary with resolutions as keys and kernel peaks (z, value) as values.
         """
+        # Use default range if z_resolutions is not provided
+        if z_resolutions is None:
+            z_resolutions = list(range(300, 10001, 50))
 
-        # Define a list of redshift resolutions to explore, from 300 to 5000 with steps of 50
-        redshift_resolutions = np.arange(300, 5001, 50)
-        results = {}
+        peaks_by_resolution = {}
 
-        # Compute Cls for each redshift resolution
-        for res in redshift_resolutions:
-            # Initialize DataVectors with the current redshift resolution
-            dv = DataVectors(self.presets)
+        for res in z_resolutions:
+            # Initialize the presets with updated redshift resolution
+            temp_presets = Presets(redshift_max=self.presets.redshift_max,
+                                   redshift_resolution=res,
+                                   forecast_year=self.presets.forecast_year)
 
-            # Choose Cls calculation based on cls_type
-            if cls_type == "shear":
-                cls = dv.cosmic_shear_cls()
-            elif cls_type == "clustering":
-                cls = dv.galaxy_clustering_cls()
+            # Reinitialize DataVectors with updated presets and redshift range
+            dv_temp = DataVectors(temp_presets)
+            redshift_range = dv_temp.redshift_range
+
+            # Get kernel peaks based on kernel type
+            if kernel_type == "wl":
+                wl_kernel = dv_temp.get_wl_kernel(include_ia, return_chi=False)
+                kernel_peaks = self.get_kernel_peaks(wl_kernel, redshift_range)
+            elif kernel_type == "nc":
+                nc_kernel = dv_temp.get_nc_kernel(include_gbias, return_chi=False)
+                kernel_peaks = self.get_kernel_peaks(nc_kernel, redshift_range)
             else:
-                raise ValueError("Invalid cls_type. Choose either 'shear' or 'clustering'.")
+                raise ValueError("Invalid kernel type specified. Use 'wl' for weak lensing or 'nc' for number counts.")
 
-            results[res] = cls
+            peaks_by_resolution[res] = kernel_peaks
 
-        # Calculate stability metrics by comparing Cls at consecutive resolutions
-        stability_metrics = {}
-        for i in range(1, len(redshift_resolutions)):
-            res1 = redshift_resolutions[i - 1]
-            res2 = redshift_resolutions[i]
-
-            # Compute differences based on the selected difference type
-            diff_dict = {
-                "absolute": results[res2] - results[res1],
-                "relative": (results[res2] / results[res1]) - 1,
-                "fractional": (results[res2] - results[res1]) / results[res1]
-            }
-            diff = diff_dict[difference_type]
-            avg_diff = np.mean(np.abs(diff))  # Use np.abs to ensure positive values for averaging
-
-            stability_metrics[(res1, res2)] = avg_diff
-
-        return stability_metrics, results
+        return peaks_by_resolution
