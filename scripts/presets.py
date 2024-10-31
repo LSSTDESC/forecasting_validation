@@ -48,6 +48,7 @@ class Presets:
 
         self.lens_parameters = lsst_desc_parameters["lens_sample"][self.forecast_year]
         self.source_parameters = lsst_desc_parameters["source_sample"][self.forecast_year]
+        self.f_sky = lsst_desc_parameters["sky"]["frac_sky"] 
 
     def save_data(self, name, data, dir=None, extra_info=None, include_ccl_version=True):
         """
