@@ -308,3 +308,4 @@ def plot_stabilization_resolution_heatmap(bin_centers_by_zmax,
     fig_name = f"{bin_type}_stabilization_resolution_heatmap_zmax_sweep_y{forecast_year}{fig_format}"
     plt.savefig(f"plots_output/{fig_name}")
     plt.show()
+

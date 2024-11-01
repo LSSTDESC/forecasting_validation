@@ -19,24 +19,34 @@ class DataVectorMetrics:
         """
         peaks = []
         for kernel in kernel_array:
+            # Flatten the kernel in case it has extra dimensions
+            kernel = np.ravel(kernel)
+
+            # Check if kernel length matches redshift_range
+            if len(kernel) != len(redshift_range):
+                raise ValueError(
+                    f"Kernel length {len(kernel)} does not match redshift_range length {len(redshift_range)}.")
+
+            # Find peak index and values
             peak_index = np.argmax(kernel)
             peak_redshift = redshift_range[peak_index]
             peak_value = kernel[peak_index]
             peaks.append((peak_redshift, peak_value))
         return peaks
 
-    def kernel_peaks_z_resolution_sweep(self, z_resolutions=None, include_ia=True, include_gbias=True, kernel_type="wl"):
+    def kernel_peaks_z_resolution_sweep(self, z_resolutions=None, include_ia=True, include_gbias=True):
         """
-        Perform a parametric sweep of redshift resolutions, calculating kernel peaks for each resolution.
+        Perform a parametric sweep of redshift resolutions, calculating kernel peaks for each resolution
+        for both weak lensing (WL) and number counts (NC) kernels.
 
         Parameters:
             z_resolutions (list, optional): List of redshift resolutions to iterate over. If None, uses default range.
             include_ia (bool): Include intrinsic alignment for WL kernels.
             include_gbias (bool): Include galaxy bias for NC kernels.
-            kernel_type (str): Either "wl" for weak lensing or "nc" for number counts.
 
         Returns:
-            dict: A dictionary with resolutions as keys and kernel peaks (z, value) as values.
+            dict: A dictionary with resolutions as keys, each containing sub-dictionaries with WL and NC kernel peaks.
+                  Format: {resolution: {"wl": [(z_peak, value_peak), ...], "nc": [(z_peak, value_peak), ...]}}
         """
         # Use default range if z_resolutions is not provided
         if z_resolutions is None:
@@ -54,17 +64,25 @@ class DataVectorMetrics:
             dv_temp = DataVectors(temp_presets)
             redshift_range = dv_temp.redshift_range
 
-            # Get kernel peaks based on kernel type
-            if kernel_type == "wl":
-                wl_kernel = dv_temp.get_wl_kernel(include_ia, return_chi=False)
-                kernel_peaks = self.get_kernel_peaks(wl_kernel, redshift_range)
-            elif kernel_type == "nc":
-                nc_kernel = dv_temp.get_nc_kernel(include_gbias, return_chi=False)
-                kernel_peaks = self.get_kernel_peaks(nc_kernel, redshift_range)
-            else:
-                raise ValueError("Invalid kernel type specified. Use 'wl' for weak lensing or 'nc' for number counts.")
+            # Get kernel peaks for both WL and NC kernels
+            wl_kernel_peaks = None
+            nc_kernel_peaks = None
 
-            peaks_by_resolution[res] = kernel_peaks
+            # Calculate WL kernel peaks if include_ia is True
+            if include_ia:
+                wl_kernel = dv_temp.get_wl_kernel(include_ia=True, return_chi=False)
+                wl_kernel_peaks = self.get_kernel_peaks(wl_kernel, redshift_range)
+
+            # Calculate NC kernel peaks if include_gbias is True
+            if include_gbias:
+                nc_kernel = dv_temp.get_nc_kernel(include_gbias=True, return_chi=False)
+                nc_kernel_peaks = self.get_kernel_peaks(nc_kernel, redshift_range)
+
+            # Store peaks by resolution in a nested dictionary format
+            peaks_by_resolution[res] = {
+                "wl": wl_kernel_peaks,
+                "nc": nc_kernel_peaks
+            }
 
         return peaks_by_resolution
 
