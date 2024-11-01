@@ -245,13 +245,15 @@ def plot_stabilization_vs_percentage(bin_centers_resolutions,
 
 
 def plot_tomobin_stabilization_resolution_heatmap(bin_centers_by_zmax,
-                                          bin_type="source",
-                                          percentage=0.1,
-                                          stability_steps=10,
-                                          forecast_year="1",
-                                          fig_format=".pdf"):
+                                                  bin_type="source",
+                                                  percentage=0.1,
+                                                  stability_steps=10,
+                                                  forecast_year="1",
+                                                  fig_format=".pdf",
+                                                  annotate_max=False):
     """
-    Create a seaborn heatmap of the redshift resolution where stabilization occurs for each bin and `zmax` value.
+    Create a seaborn heatmap of the redshift resolution where stabilization occurs for each bin and `zmax` value,
+    with an option to annotate only the maximum stabilization resolution for each `zmax` column.
 
     Parameters:
         bin_centers_by_zmax (dict): Nested dictionary containing bin centers for each `zmax` and resolution.
@@ -260,6 +262,7 @@ def plot_tomobin_stabilization_resolution_heatmap(bin_centers_by_zmax,
         stability_steps (int): Number of consecutive steps within the band required for stabilization (default 10).
         forecast_year (str): The forecast year (default "1").
         fig_format (str): File format for saving the figure (default ".pdf").
+        annotate_max (bool): Whether to annotate only the maximum stabilization resolution in each column (default: False).
     """
     # Extract sorted `zmax` values and resolutions
     zmax_values = sorted(bin_centers_by_zmax.keys())
@@ -297,16 +300,26 @@ def plot_tomobin_stabilization_resolution_heatmap(bin_centers_by_zmax,
                 else:
                     stable_count = 0  # Reset if outside band
 
-    # Plot the heatmap
+    # Create the heatmap plot
+    cmap = cmr.get_sub_cmap('cmr.pride', 0.15, 0.85)
     plt.figure(figsize=(10, len(bin_keys) * 0.5))
-    ax = sns.heatmap(heatmap_data, annot=True, fmt=".0f", cmap="cmr.pride",
+    ax = sns.heatmap(heatmap_data, annot=False if annotate_max else True, fmt=".0f", cmap=cmap,
                      cbar_kws={'label': 'Stabilization Resolution'},
-                     xticklabels=np.round(zmax_values, 2), yticklabels=[f"Bin {i + 1}" for i in bin_keys])
+                     xticklabels=np.round(zmax_values, 2), yticklabels=[f"{i + 1}" for i in bin_keys])
+
+    # If annotating only max values, find max value in each column and annotate it
+    if annotate_max:
+        for zmax_idx in range(len(zmax_values)):
+            max_row_idx = np.nanargmax(heatmap_data[:, zmax_idx])  # Find the row with the max value in this column
+            max_value = heatmap_data[max_row_idx, zmax_idx]
+            ax.text(zmax_idx + 0.5, max_row_idx + 0.5, f"{int(max_value)}",
+                    ha='center', va='center', color='white', fontsize=10)
 
     # Add title and labels
-    ax.set_title(f"{bin_type.capitalize()} Stabilization Resolution Across Zmax Values (Forecast Year {forecast_year})", fontsize=14)
-    ax.set_xlabel("Zmax", fontsize=12)
-    ax.set_ylabel("Bin Index", fontsize=12)
+    ax.set_title(f"Stabilization $z_\mathrm{{res}}$ across $z_\mathrm{{max}}$ values LSST Y{forecast_year}",
+                 fontsize=14)
+    ax.set_xlabel("$z_\mathrm{{max}}$", fontsize=12)
+    ax.set_ylabel("tomo bin", fontsize=12)
 
     # Save the figure
     fig_name = f"{bin_type}_stabilization_resolution_heatmap_zmax_sweep_y{forecast_year}{fig_format}"
