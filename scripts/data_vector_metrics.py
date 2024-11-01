@@ -1,7 +1,7 @@
 import numpy as np
 from scripts.data_vectors import DataVectors
 from scripts.presets import Presets
-import matplotlib.pyplot as plt
+
 
 class DataVectorMetrics:
 
@@ -311,5 +311,8 @@ class DataVectorMetrics:
                     "wl": wl_kernel_peaks,
                     "nc": nc_kernel_peaks
                 }
+        data_path = "data_output/kernels/"
+        filename = f"kernel_peaks_zmax_and_zres_sweep_y{self.presets.forecast_year}.npy"
+        np.save(f"{data_path}{filename}", peaks_by_zmax_and_resolution)
 
         return peaks_by_zmax_and_resolution

@@ -83,14 +83,14 @@ def plot_bin_centers_subplots(bin_centers_resolutions,
                               zmax,
                               forecast_year,
                               bin_type="source",
-                              percentage=None,
+                              precision=None,
                               marker_size=5,
                               stability_steps=10,
                               include_error_bars=False,
                               fig_format=".pdf",
                               title_pad=0.95):
     """
-    Plot bin centers across different redshift resolutions in separate subplots with an optional averaged percentage band.
+    Plot bin centers across different redshift resolutions in separate subplots with an optional averaged precision band.
     Adds a vertical line at the resolution where the bin center stabilizes within the desired band for `stability_steps` consecutive steps.
 
     Parameters:
@@ -98,7 +98,7 @@ def plot_bin_centers_subplots(bin_centers_resolutions,
         forecast_year (str): Forecast year for the bin centers.
         bin_centers_resolutions (dict): Nested dictionary containing bin centers for each redshift resolution.
         bin_type (str): Either "source" or "lens" to specify which bin centers to plot.
-        percentage (float): Percentage for the averaged band (default: None).
+        precision (float): precision for the averaged band (default: None).
         marker_size (int): Size of the markers for the bin centers (default: 5).
         stability_steps (int): Number of consecutive steps within the band required for stabilization (default: 10).
         include_error_bars (bool): Whether to include error bars in the plot (default: False).
@@ -147,14 +147,14 @@ def plot_bin_centers_subplots(bin_centers_resolutions,
 
         #axes[i].legend(fontsize=18)
 
-        # If percentage is provided, calculate and plot the averaged band
-        if percentage:
+        # If precision is provided, calculate and plot the averaged band
+        if precision:
             avg_bin_center = np.mean(bin_center_values)
-            margin = avg_bin_center * (percentage / 100)
+            margin = avg_bin_center * (precision / 100)
             upper_band = avg_bin_center + margin
             lower_band = avg_bin_center - margin
             axes[i].fill_between(resolutions, lower_band, upper_band, color='gray', alpha=0.2,
-                                 label=f"±{percentage}% Band (around average)")
+                                 label=f"±{precision}% Band (around average)")
 
 
 
@@ -181,17 +181,17 @@ def plot_bin_centers_subplots(bin_centers_resolutions,
     plt.savefig(f"plots_output/{fig_name}")
 
 
-def plot_stabilization_vs_percentage(bin_centers_resolutions,
+def plot_stabilization_vs_precision(bin_centers_resolutions,
                                      bin_type="source",
-                                     percentages=(1, 5, 10, 15),
+                                     precisions=(1, 5, 10, 15),
                                      stability_steps=10):
     """
-    Plot the resolution at which bin centers stabilize across different percentage bands.
+    Plot the resolution at which bin centers stabilize across different precision bands.
 
     Parameters:
         bin_centers_resolutions (dict): Nested dictionary containing bin centers for each redshift resolution.
         bin_type (str): Either "source" or "lens" to specify which bin centers to plot.
-        percentages (tuple): A sequence of percentage values to loop over (e.g., (1, 5, 10, 15)).
+        precisions (tuple): A sequence of precision values to loop over (e.g., (1, 5, 10, 15)).
         stability_steps (int): Number of consecutive steps within the band required to consider it stable (default: 5).
     """
     # Extract resolutions and sort them
@@ -204,16 +204,16 @@ def plot_stabilization_vs_percentage(bin_centers_resolutions,
     # Prepare a figure
     fig, ax = plt.subplots(figsize=(8, 3))
 
-    # Loop over each bin and percentage
+    # Loop over each bin and precision
     for bin_key in bin_keys:
         stabilization_points = []
 
-        for percentage in percentages:
+        for precision in precisions:
             bin_center_values = [
                 bin_centers_resolutions[res][f"{bin_type}_bin_centers"][bin_key] for res in resolutions
             ]
             avg_bin_center = np.mean(bin_center_values)
-            margin = avg_bin_center * (percentage / 100)
+            margin = avg_bin_center * (precision / 100)
             upper_band = avg_bin_center + margin
             lower_band = avg_bin_center - margin
 
@@ -232,25 +232,25 @@ def plot_stabilization_vs_percentage(bin_centers_resolutions,
 
             stabilization_points.append(stabilization_resolution)
 
-        # Plot stabilization resolution as a function of percentage
-        ax.plot(percentages, stabilization_points, marker='o', label=f"Bin {bin_key + 1}", c=colors[bin_key])
+        # Plot stabilization resolution as a function of precision
+        ax.plot(precisions, stabilization_points, marker='o', label=f"{bin_key + 1}", c=colors[bin_key])
 
     # Add labels and legend
-    ax.set_xlabel("Percentage Band", fontsize=14)
-    ax.set_ylabel("Stabilization Resolution", fontsize=14)
-    ax.legend(title="Bin", fontsize=10)
+    ax.set_xlabel("precision band", fontsize=14)
+    ax.set_ylabel("stabilization resolution", fontsize=14)
+    ax.legend(title="tomographic bin", fontsize=10)
 
     plt.tight_layout()
     plt.show()
 
 
 def plot_tomobin_stabilization_resolution_heatmap(bin_centers_by_zmax,
-                                                  bin_type="source",
-                                                  percentage=0.1,
-                                                  stability_steps=10,
                                                   forecast_year="1",
-                                                  fig_format=".pdf",
-                                                  annotate_max=False):
+                                                  bin_type="source",
+                                                  precision=0.1,
+                                                  stability_steps=10,
+                                                  annotate_max=False,
+                                                  fig_format=".pdf"):
     """
     Create a seaborn heatmap of the redshift resolution where stabilization occurs for each bin and `zmax` value,
     with an option to annotate only the maximum stabilization resolution for each `zmax` column.
@@ -258,7 +258,7 @@ def plot_tomobin_stabilization_resolution_heatmap(bin_centers_by_zmax,
     Parameters:
         bin_centers_by_zmax (dict): Nested dictionary containing bin centers for each `zmax` and resolution.
         bin_type (str): Either "source" or "lens" to specify which bin centers to plot.
-        percentage (float): Percentage for stabilization band (default 5%).
+        precision (float): Desired precision (%) for stabilization band (default 0.1 %).
         stability_steps (int): Number of consecutive steps within the band required for stabilization (default 10).
         forecast_year (str): The forecast year (default "1").
         fig_format (str): File format for saving the figure (default ".pdf").
@@ -283,9 +283,9 @@ def plot_tomobin_stabilization_resolution_heatmap(bin_centers_by_zmax,
                 bin_centers_by_zmax[zmax][res][f"{bin_type}_bin_centers"][bin_key] for res in resolution_values
             ]
 
-            # Calculate stabilization based on percentage band
+            # Calculate stabilization based on precision band
             avg_bin_center = np.mean(bin_center_values)
-            margin = avg_bin_center * (percentage / 100)
+            margin = avg_bin_center * (precision / 100)
             upper_band = avg_bin_center + margin
             lower_band = avg_bin_center - margin
 
@@ -327,8 +327,14 @@ def plot_tomobin_stabilization_resolution_heatmap(bin_centers_by_zmax,
     plt.show()
 
 
-def plot_kernel_peaks_z_resolution(peaks_by_resolution, forecast_year, kernel_type="wl", percentage=0.1,
-                                   stability_steps=10, marker_size=3, fig_format=".pdf", title_pad=0.95):
+def plot_kernel_peaks_z_resolution(peaks_by_resolution,
+                                   forecast_year,
+                                   kernel_type="wl",
+                                   precision=0.1,
+                                   stability_steps=10,
+                                   marker_size=3,
+                                   fig_format=".pdf",
+                                   title_pad=0.95):
     """
     Plot kernel peaks across different redshift resolutions.
 
@@ -337,8 +343,11 @@ def plot_kernel_peaks_z_resolution(peaks_by_resolution, forecast_year, kernel_ty
                 resolutions as keys. Format: {resolution: {"wl": [(z_peak, value_peak), ...], "nc": [(z_peak, value_peak), ...]}}
         forecast_year (str): Forecasting year for the plot title.
         kernel_type (str): Which kernel to plot: "wl" for weak lensing, "nc" for number counts.
+        precision (float): Desired precision (%) for stabilization band (default 0.1 %).
+        stability_steps (int): Number of consecutive steps within the band required for stabilization (default 10).
         marker_size (int): Size of the markers for the peaks (default: 5).
         fig_format (str): File format for saving the figure (default: ".pdf").
+        title_pad (float): Padding for the title above the subplots (default: 0.95).
     """
     # Extract resolutions and sort them for consistent plotting
     resolutions = sorted(peaks_by_resolution.keys())
@@ -385,16 +394,16 @@ def plot_kernel_peaks_z_resolution(peaks_by_resolution, forecast_year, kernel_ty
         # Set more ticks and finer detail on axes
         axes[i].locator_params(axis='x', nbins=20)  # Adjusts the number of x-axis ticks
 
-        # Calculate average peak and percentage band
-        if percentage:
+        # Calculate average peak and precision band
+        if precision:
             z_peaks = [peaks_by_resolution[res][kernel_type][i][0] for res in resolutions if
                        i < len(peaks_by_resolution[res][kernel_type])]
             avg_peak = np.mean(z_peaks)
-            margin = avg_peak * (percentage / 100)
+            margin = avg_peak * (precision / 100)
             upper_band = avg_peak + margin
             lower_band = avg_peak - margin
             axes[i].fill_between(resolutions, lower_band, upper_band, color='gray', alpha=0.2,
-                                 label=f"±{percentage}% Band (around average)")
+                                 label=f"±{precision}% Band (around average)")
 
         # Optional stabilization check and line
         stable_count = 0
@@ -414,11 +423,13 @@ def plot_kernel_peaks_z_resolution(peaks_by_resolution, forecast_year, kernel_ty
     plt.savefig(fig_name)
     plt.show()
 
+
 def plot_kernel_stabilization_resolution_heatmap(kernel_peaks_by_zmax_and_resolution,
+                                                 forecast_year,
                                                  kernel_type="wl",
-                                                 percentage=0.1,
+                                                 precision=0.1,
                                                  stability_steps=10,
-                                                 forecast_year="1",
+                                                 annotate_max=False,
                                                  fig_format=".pdf"):
     """
     Create a heatmap of the redshift resolution where kernel stabilization occurs for each kernel and `zmax` value.
@@ -426,8 +437,9 @@ def plot_kernel_stabilization_resolution_heatmap(kernel_peaks_by_zmax_and_resolu
     Parameters:
         kernel_peaks_by_zmax_and_resolution (dict): Nested dictionary containing kernel peaks for each `zmax` and resolution.
         kernel_type (str): Either "wl" for weak lensing or "nc" for number counts kernels.
-        percentage (float): Percentage for stabilization band (default 0.1).
+        precision (float): Desired precision (%) for stabilization band (default 0.1 %).
         stability_steps (int): Number of consecutive steps within the band required for stabilization (default 10).
+        annotate_max (bool): Whether to annotate only the maximum stabilization resolution in each column (default: False).
         forecast_year (str): The forecast year (default "1").
         fig_format (str): File format for saving the figure (default ".pdf").
     """
@@ -452,9 +464,9 @@ def plot_kernel_stabilization_resolution_heatmap(kernel_peaks_by_zmax_and_resolu
                 if kernel_idx < len(kernel_peaks_by_zmax_and_resolution[zmax][res][kernel_type])
             ]
 
-            # Calculate stabilization based on percentage band
+            # Calculate stabilization based on precision band
             avg_peak_value = np.mean(kernel_peak_values)
-            margin = avg_peak_value * (percentage / 100)
+            margin = avg_peak_value * (precision / 100)
             upper_band = avg_peak_value + margin
             lower_band = avg_peak_value - margin
 
@@ -469,21 +481,29 @@ def plot_kernel_stabilization_resolution_heatmap(kernel_peaks_by_zmax_and_resolu
                 else:
                     stable_count = 0  # Reset if outside band
 
-    # Plot the heatmap
+    # Create the heatmap plot
+    cmap = cmr.get_sub_cmap('cmr.pride', 0.15, 0.85)
     plt.figure(figsize=(10, num_kernels * 0.5))
-    ax = sns.heatmap(heatmap_data, annot=True, fmt=".0f", cmap="cmr.pride",
+    ax = sns.heatmap(heatmap_data, annot=not annotate_max, fmt=".0f", cmap=cmap,
                      cbar_kws={'label': 'Stabilization Resolution'},
-                     xticklabels=np.round(zmax_values, 2), yticklabels=[f"Kernel {i + 1}" for i in range(num_kernels)])
+                     xticklabels=np.round(zmax_values, 2), yticklabels=[f"{i + 1}" for i in range(num_kernels)])
+
+    # If annotating only max values, find max value in each column and annotate it
+    if annotate_max:
+        for zmax_idx in range(len(zmax_values)):
+            max_row_idx = np.nanargmax(heatmap_data[:, zmax_idx])  # Find the row with the max value in this column
+            max_value = heatmap_data[max_row_idx, zmax_idx]
+            ax.text(zmax_idx + 0.5, max_row_idx + 0.5, f"{int(max_value)}",
+                    ha='center', va='center', color='white', fontsize=10)
 
     # Add title and labels
     kernel_label = "Weak Lensing" if kernel_type == "wl" else "Number Counts"
-    ax.set_title(f"{kernel_label} Kernel Stabilization Resolution Across Zmax Values (Forecast Year {forecast_year})", fontsize=14)
-    ax.set_xlabel("Zmax", fontsize=12)
-    ax.set_ylabel("Kernel Index", fontsize=12)
+    ax.set_title(f"{kernel_label} kernel stabilization across $z_\\mathrm{{max}}$ LSST Y{forecast_year}",
+                 fontsize=14)
+    ax.set_xlabel("$z_\\mathrm{max}$", fontsize=12)
+    ax.set_ylabel("kernel index", fontsize=12)
 
     # Save the figure
     fig_name = f"{kernel_type}_kernel_stabilization_resolution_heatmap_zmax_sweep_y{forecast_year}{fig_format}"
     plt.savefig(f"plots_output/{fig_name}")
     plt.show()
-
-
