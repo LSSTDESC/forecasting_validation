@@ -34,7 +34,7 @@ class DataVectorMetrics:
             peaks.append((peak_redshift, peak_value))
         return peaks
 
-    def kernel_peaks_z_resolution_sweep(self, z_resolutions=None, include_ia=True, include_gbias=True):
+    def kernel_peaks_zresolution_sweep(self, z_resolutions=None, include_ia=True, include_gbias=True):
         """
         Perform a parametric sweep of redshift resolutions, calculating kernel peaks for each resolution
         for both weak lensing (WL) and number counts (NC) kernels.
@@ -83,6 +83,10 @@ class DataVectorMetrics:
                 "wl": wl_kernel_peaks,
                 "nc": nc_kernel_peaks
             }
+
+        data_path = "data_output/kernels/"
+        filename = f"kernel_peaks_zres_sweep_y{self.presets.forecast_year}.npy"
+        np.save(f"{data_path}{filename}", peaks_by_resolution)
 
         return peaks_by_resolution
 
