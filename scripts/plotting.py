@@ -51,34 +51,6 @@ def compare_two_data_vector_sets_relative(data_vector_1,
     plt.show()
 
 
-def plot_comoving_distance_comparison(abs_diff, rel_diff, redshift_fine):
-    """
-    Plots absolute and relative differences in comoving distances.
-
-    Args:
-        abs_diff (np.ndarray): Absolute differences on the fine grid.
-        rel_diff (np.ndarray): Relative differences on the fine grid.
-        redshift_fine (np.ndarray): The fine redshift grid for plotting.
-    """
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(7, 5), sharex=True)
-
-    colors = cmr.take_cmap_colors("cmr.pride", 5, cmap_range=(0.15, 0.85), return_fmt='hex')
-
-    # Plot absolute difference
-    ax1.plot(redshift_fine, abs_diff, color=colors[1], label='Absolute Difference')
-    ax1.set_ylabel('Absolute Difference [Mpc]')
-    ax1.legend()
-
-    # Plot relative difference
-    ax2.plot(redshift_fine, rel_diff, color=colors[3], label='Relative Difference')
-    ax2.set_ylabel('Relative Difference')
-    ax2.set_xlabel('Redshift')
-    ax2.legend()
-
-    plt.tight_layout()
-    plt.show()
-
-
 def plot_bin_centers_subplots(bin_centers_resolutions,
                               zmax,
                               forecast_year,
