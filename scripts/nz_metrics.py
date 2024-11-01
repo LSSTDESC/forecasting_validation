@@ -19,7 +19,7 @@ class NZMetrics:
         self.ell_num = presets.ell_num
         self.save_data = presets.save_data
 
-    def compare_bin_centers_over_resolutions(self, res_start=300, res_end=10000, step=50, decimal_places=4):
+    def compare_bin_centers_over_zresolutions(self, res_start=300, res_end=10000, step=50, decimal_places=4):
         """
         Compare tomographic bin centers across a range of redshift resolutions.
 
@@ -71,7 +71,7 @@ class NZMetrics:
 
         return bin_centers_resolutions
 
-    def compare_bin_centers_over_resolutions_and_zmax(self,
+    def compare_bin_centers_over_zresolutions_and_zmax(self,
                                                       zmax_start=3.0,
                                                       zmax_end=4.0,
                                                       zmax_step=0.1,
