@@ -245,4 +245,71 @@ class DataVectorMetrics:
 
         return np.sum(chi2_at_ell)
 
+    def kernel_peaks_z_resolution_and_zmax_sweep(self,
+                                                 zmax_start=3.0,
+                                                 zmax_end=4.0,
+                                                 zmax_step=0.1,
+                                                 res_start=300,
+                                                 res_end=10000,
+                                                 res_step=50,
+                                                 include_ia=True,
+                                                 include_gbias=True):
+        """
+        Perform a parametric sweep of redshift resolutions and zmax values, calculating kernel peaks for each
+        combination of zmax and resolution.
 
+        Parameters:
+            zmax_start (float): Starting value for zmax.
+            zmax_end (float): Ending value for zmax.
+            zmax_step (float): Step increment for zmax.
+            res_start (int): Starting resolution for redshift range.
+            res_end (int): Ending resolution for resolution range.
+            res_step (int): Step increment for resolution.
+            include_ia (bool): Include intrinsic alignment for WL kernels.
+            include_gbias (bool): Include galaxy bias for NC kernels.
+
+        Returns:
+            dict: Nested dictionary with kernel peaks for each zmax and resolution.
+                  Format: {str(zmax): {resolution: {"wl": [(z_peak, value_peak), ...], "nc": [(z_peak, value_peak), ...]}}}
+        """
+        peaks_by_zmax_and_resolution = {}
+
+        for zmax in np.arange(zmax_start, zmax_end + zmax_step, zmax_step):
+            # Round zmax to 1 decimal place for dictionary key
+            zmax_key = round(zmax, 1)
+            peaks_by_zmax_and_resolution[zmax_key] = {}
+
+            for resolution in range(res_start, res_end + 1, res_step):
+                # Initialize Presets with the current resolution and zmax
+                temp_presets = Presets(
+                    cosmology=self.presets.cosmology,
+                    redshift_max=round(zmax, 1),  # Use rounded zmax here
+                    redshift_resolution=resolution,
+                    forecast_year=self.presets.forecast_year
+                )
+
+                # Reinitialize DataVectors with updated presets and redshift range
+                dv_temp = DataVectors(temp_presets)
+                redshift_range = dv_temp.redshift_range
+
+                # Get kernel peaks for both WL and NC kernels
+                wl_kernel_peaks = None
+                nc_kernel_peaks = None
+
+                # Calculate WL kernel peaks if include_ia is True
+                if include_ia:
+                    wl_kernel = dv_temp.get_wl_kernel(include_ia=True, return_chi=False)
+                    wl_kernel_peaks = self.get_kernel_peaks(wl_kernel, redshift_range)
+
+                # Calculate NC kernel peaks if include_gbias is True
+                if include_gbias:
+                    nc_kernel = dv_temp.get_nc_kernel(include_gbias=True, return_chi=False)
+                    nc_kernel_peaks = self.get_kernel_peaks(nc_kernel, redshift_range)
+
+                # Store peaks in a nested dictionary format
+                peaks_by_zmax_and_resolution[zmax_key][resolution] = {
+                    "wl": wl_kernel_peaks,
+                    "nc": nc_kernel_peaks
+                }
+
+        return peaks_by_zmax_and_resolution

@@ -244,7 +244,7 @@ def plot_stabilization_vs_percentage(bin_centers_resolutions,
     plt.show()
 
 
-def plot_stabilization_resolution_heatmap(bin_centers_by_zmax,
+def plot_tomobin_stabilization_resolution_heatmap(bin_centers_by_zmax,
                                           bin_type="source",
                                           percentage=0.1,
                                           stability_steps=10,
@@ -400,4 +400,77 @@ def plot_kernel_peaks_z_resolution(peaks_by_resolution, forecast_year, kernel_ty
     fig_name = f"plots_output/{fname_prefix}kernel_peaks_resolution_sweep{fig_format}"
     plt.savefig(fig_name)
     plt.show()
+
+def plot_kernel_stabilization_resolution_heatmap(kernel_peaks_by_zmax_and_resolution,
+                                                 kernel_type="wl",
+                                                 percentage=0.1,
+                                                 stability_steps=10,
+                                                 forecast_year="1",
+                                                 fig_format=".pdf"):
+    """
+    Create a heatmap of the redshift resolution where kernel stabilization occurs for each kernel and `zmax` value.
+
+    Parameters:
+        kernel_peaks_by_zmax_and_resolution (dict): Nested dictionary containing kernel peaks for each `zmax` and resolution.
+        kernel_type (str): Either "wl" for weak lensing or "nc" for number counts kernels.
+        percentage (float): Percentage for stabilization band (default 0.1).
+        stability_steps (int): Number of consecutive steps within the band required for stabilization (default 10).
+        forecast_year (str): The forecast year (default "1").
+        fig_format (str): File format for saving the figure (default ".pdf").
+    """
+    # Extract sorted `zmax` values and resolutions
+    zmax_values = sorted(kernel_peaks_by_zmax_and_resolution.keys())
+    sample_zmax = zmax_values[0]
+    resolution_values = sorted(kernel_peaks_by_zmax_and_resolution[sample_zmax].keys())
+
+    # Get the number of kernels for the specified kernel type
+    num_kernels = len(kernel_peaks_by_zmax_and_resolution[sample_zmax][resolution_values[0]][kernel_type])
+
+    # Initialize a matrix for stabilization resolution heatmap data
+    heatmap_data = np.full((num_kernels, len(zmax_values)), np.nan)
+
+    # Find the stabilization resolution for each `zmax` and kernel
+    for zmax_idx, zmax in enumerate(zmax_values):
+        for kernel_idx in range(num_kernels):
+            # Retrieve kernel peak values across resolutions for current `zmax` and kernel
+            kernel_peak_values = [
+                kernel_peaks_by_zmax_and_resolution[zmax][res][kernel_type][kernel_idx][0]
+                for res in resolution_values
+                if kernel_idx < len(kernel_peaks_by_zmax_and_resolution[zmax][res][kernel_type])
+            ]
+
+            # Calculate stabilization based on percentage band
+            avg_peak_value = np.mean(kernel_peak_values)
+            margin = avg_peak_value * (percentage / 100)
+            upper_band = avg_peak_value + margin
+            lower_band = avg_peak_value - margin
+
+            # Identify first stabilization resolution
+            stable_count = 0
+            for res_idx, value in enumerate(kernel_peak_values):
+                if lower_band <= value <= upper_band:
+                    stable_count += 1
+                    if stable_count >= stability_steps:
+                        heatmap_data[kernel_idx, zmax_idx] = resolution_values[res_idx]
+                        break
+                else:
+                    stable_count = 0  # Reset if outside band
+
+    # Plot the heatmap
+    plt.figure(figsize=(10, num_kernels * 0.5))
+    ax = sns.heatmap(heatmap_data, annot=True, fmt=".0f", cmap="cmr.pride",
+                     cbar_kws={'label': 'Stabilization Resolution'},
+                     xticklabels=np.round(zmax_values, 2), yticklabels=[f"Kernel {i + 1}" for i in range(num_kernels)])
+
+    # Add title and labels
+    kernel_label = "Weak Lensing" if kernel_type == "wl" else "Number Counts"
+    ax.set_title(f"{kernel_label} Kernel Stabilization Resolution Across Zmax Values (Forecast Year {forecast_year})", fontsize=14)
+    ax.set_xlabel("Zmax", fontsize=12)
+    ax.set_ylabel("Kernel Index", fontsize=12)
+
+    # Save the figure
+    fig_name = f"{kernel_type}_kernel_stabilization_resolution_heatmap_zmax_sweep_y{forecast_year}{fig_format}"
+    plt.savefig(f"plots_output/{fig_name}")
+    plt.show()
+
 
