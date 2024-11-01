@@ -368,13 +368,11 @@ class DataVectors:
                     # and store the result in 'overlap'
                     overlap = np.trapz(overlap_distribution, redshift_range) / a / b
 
-                    # Check if the overlap is less than or equal to the allowed overlap threshold
-                    # If the overlap is within the allowed range,
-                    # add the lens-source distance pair to the 'selected_pairs' list
+                    # Check if the overlap is within the allowed overlap threshold
                     if overlap <= allowed_overlap:
-                        selected_pairs.append((source_index, lens_index))
+                        selected_pairs.append((lens_index, source_index))
 
-                return selected_pairs
+        return selected_pairs
 
     def shear_correlations_all(self):
         """
