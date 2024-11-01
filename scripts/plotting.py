@@ -507,3 +507,130 @@ def plot_kernel_stabilization_resolution_heatmap(kernel_peaks_by_zmax_and_resolu
     fig_name = f"{kernel_type}_kernel_stabilization_resolution_heatmap_zmax_sweep_y{forecast_year}{fig_format}"
     plt.savefig(f"plots_output/{fig_name}")
     plt.show()
+
+
+def plot_galaxy_bias_resolutions(galaxy_bias_resolutions,
+                                 forecast_year,
+                                 precision=0.1,
+                                 stability_steps=10,
+                                 marker_size=5):
+    """
+    Plot galaxy bias across different redshift resolutions.
+
+    Parameters:
+        galaxy_bias_resolutions (dict): Galaxy bias values across resolutions.
+        forecast_year (str): Year of forecast for plot labeling.
+        precision (float): Precision band percentage for stabilization check.
+        stability_steps (int): Steps required within precision band for stabilization.
+    """
+    resolutions = sorted(galaxy_bias_resolutions.keys())
+    num_bins = len(galaxy_bias_resolutions[resolutions[0]])
+
+    colors = cmr.take_cmap_colors("cmr.pride", num_bins, cmap_range=(0.15, 0.85), return_fmt='hex')
+    fig, axes = plt.subplots(num_bins, 1, figsize=(8, 2. * num_bins), sharex=True)
+    fig.suptitle(f"Galaxy Bias Across Redshift Resolutions - Forecast Year {forecast_year}", fontsize=16)
+
+    for i in range(num_bins):
+        bin_bias_values = [galaxy_bias_resolutions[res][i] for res in resolutions]
+        axes[i].plot(resolutions, bin_bias_values, '-o', markersize=marker_size, color=colors[i], label=f"Bin {i + 1}")
+
+        # Precision band calculation and plotting
+        avg_bias = np.mean(bin_bias_values)
+        margin = avg_bias * (precision / 100)
+        upper_band, lower_band = avg_bias + margin, avg_bias - margin
+        axes[i].fill_between(resolutions, lower_band, upper_band, color='lightgray', alpha=0.3)
+
+        # Stabilization check
+        stable_count = 0
+        for res, bias in zip(resolutions, bin_bias_values):
+            if lower_band <= bias <= upper_band:
+                stable_count += 1
+                if stable_count >= stability_steps:
+                    axes[i].axvline(res, color='red', linestyle='--')
+                    # Add text label on the stabilization line
+                    axes[i].text(res, avg_bias, f'{res}', color='red',
+                                 va='top', ha='right', fontsize=10, rotation=90)
+                    break
+            else:
+                stable_count = 0
+
+        axes[i].set_ylabel(f"Bin {i + 1} Bias")
+        axes[i].legend()
+
+    axes[-1].set_xlabel("Redshift Resolution")
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_galaxy_bias_stabilization_heatmap(galaxy_bias_by_zmax_and_resolution,
+                                           forecast_year,
+                                           precision=0.1,
+                                           stability_steps=10,
+                                           annotate_max=False,
+                                           fig_format=".pdf"):
+    """
+    Create a heatmap showing the redshift resolution where galaxy bias stabilization occurs for each bin and `zmax`.
+
+    Parameters:
+        galaxy_bias_by_zmax_and_resolution (dict): Nested dictionary containing galaxy bias for each `zmax` and resolution.
+        precision (float): Desired precision (%) for stabilization band.
+        stability_steps (int): Number of consecutive steps within the band required for stabilization.
+        annotate_max (bool): Whether to annotate only the maximum stabilization resolution in each column.
+        forecast_year (str): The forecast year (default "1").
+        fig_format (str): File format for saving the figure.
+    """
+    # Extract sorted `zmax` values and resolutions
+    zmax_values = sorted(galaxy_bias_by_zmax_and_resolution.keys())
+    sample_zmax = zmax_values[0]
+    resolution_values = sorted(galaxy_bias_by_zmax_and_resolution[sample_zmax].keys())
+
+    # Get the number of bins
+    num_bins = len(galaxy_bias_by_zmax_and_resolution[sample_zmax][resolution_values[0]])
+
+    # Initialize matrix for heatmap data
+    heatmap_data = np.full((num_bins, len(zmax_values)), np.nan)
+
+    # Calculate stabilization resolution for each `zmax` and bin
+    for zmax_idx, zmax in enumerate(zmax_values):
+        for bin_idx in range(num_bins):
+            # Collect galaxy bias values across resolutions for the current `zmax` and bin
+            bin_bias_values = [galaxy_bias_by_zmax_and_resolution[zmax][res][bin_idx] for res in resolution_values]
+            avg_bias = np.mean(bin_bias_values)
+            margin = avg_bias * (precision / 100)
+            upper_band, lower_band = avg_bias + margin, avg_bias - margin
+
+            # Identify first stabilization resolution
+            stable_count = 0
+            for res_idx, value in enumerate(bin_bias_values):
+                if lower_band <= value <= upper_band:
+                    stable_count += 1
+                    if stable_count >= stability_steps:
+                        heatmap_data[bin_idx, zmax_idx] = resolution_values[res_idx]
+                        break
+                else:
+                    stable_count = 0  # Reset if outside band
+
+    # Plot heatmap
+    cmap = cmr.get_sub_cmap('cmr.pride', 0.15, 0.85)
+    plt.figure(figsize=(10, num_bins * 0.5))
+    ax = sns.heatmap(heatmap_data, annot=not annotate_max, fmt=".0f", cmap=cmap,
+                     cbar_kws={'label': 'Stabilization Resolution'},
+                     xticklabels=np.round(zmax_values, 2), yticklabels=[f"Bin {i + 1}" for i in range(num_bins)])
+
+    # Annotate max values if requested
+    if annotate_max:
+        for zmax_idx in range(len(zmax_values)):
+            max_row_idx = np.nanargmax(heatmap_data[:, zmax_idx])
+            max_value = heatmap_data[max_row_idx, zmax_idx]
+            ax.text(zmax_idx + 0.5, max_row_idx + 0.5, f"{int(max_value)}",
+                    ha='center', va='center', color='white', fontsize=10)
+
+    # Add title and labels
+    ax.set_title(f"Galaxy Bias Stabilization across $z_\\mathrm{{max}}$ - LSST Y{forecast_year}", fontsize=14)
+    ax.set_xlabel("$z_\\mathrm{max}$", fontsize=12)
+    ax.set_ylabel("Bin Index", fontsize=12)
+
+    # Save the figure
+    fig_name = f"galaxy_bias_stabilization_heatmap_zmax_sweep_y{forecast_year}{fig_format}"
+    plt.savefig(f"plots_output/{fig_name}")
+    plt.show()
