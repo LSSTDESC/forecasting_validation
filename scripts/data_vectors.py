@@ -3,6 +3,7 @@ import pyccl as ccl
 from .srd_redshift_distributions import SRDRedshiftDistributions
 from .tomographic_binning import TomographicBinning
 from .presets import Presets
+import itertools
 
 
 class DataVectors:
@@ -39,126 +40,140 @@ class DataVectors:
         gbias = (self.redshift_range, np.full_like(self.redshift_range, 1.0))
         return gbias
 
-    def cosmic_shear_cls(self, include_ia=True, want_all = False):
+    def cosmic_shear_cls(self, include_ia=True, include_all_correlations=False):
         ia_bias = self.get_ia_bias() if include_ia else None
-        correlations = self.get_correlation_pairs()["cosmic_shear"]
-        if want_all:
-            correlations = self.get_correlation_pairs()["all"]
-        self.save_data("cosmic_shear_correlations",
-                       correlations,
+        # Select correlation pairs
+        correlation_pairs = (self.get_correlation_pairs_all()
+                             if include_all_correlations
+                             else self.get_correlation_pairs())["cosmic_shear"]
+
+        fname_suffix = "_all" if include_all_correlations else ""
+        self.save_data(f"cosmic_shear_correlations{fname_suffix}",
+                       correlation_pairs,
                        dir="angular_power_spectra",
                        include_ccl_version=False)
-        
-        if want_all:
-            cls_mat = np.zeros((len(self.ells),len(self.source_bins), len(self.source_bins)))
-        cls_list = []
-        for idx_1, idx_2 in correlations:
-            tracer1 = ccl.WeakLensingTracer(self.cosmology,
-                                            dndz=(self.redshift_range, self.source_bins[idx_1]),
-                                            ia_bias=ia_bias)
-            tracer2 = ccl.WeakLensingTracer(self.cosmology,
-                                            dndz=(self.redshift_range, self.source_bins[idx_2]),
-                                            ia_bias=ia_bias)
 
-            # Compute Cl and append it to the list
-            cls_list.append(ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells))
-            if want_all:
-                cls_mat[:,idx_1,idx_2] = ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells)
-            
-        # Stack into a numpy array of shape (num_ells, num_cls)
+
+        # Initialize list for cls values
+        cls_list = []
+
+        # Generate angular power spectra
+        for idx_1, idx_2 in correlation_pairs:
+            tracer1 = ccl.WeakLensingTracer(
+                self.cosmology,
+                dndz=(self.redshift_range, self.source_bins[idx_1]),
+                ia_bias=ia_bias
+            )
+            tracer2 = ccl.WeakLensingTracer(
+                self.cosmology,
+                dndz=(self.redshift_range, self.source_bins[idx_2]),
+                ia_bias=ia_bias
+            )
+
+            cl_values = ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells)
+            cls_list.append(cl_values)
+
+        # Stack into numpy array for saving
         cls_array = np.column_stack(cls_list)
-        # Save the data with version information
-        self.save_data("cosmic_shear_cls",
+        self.save_data(f"cosmic_shear_cls{fname_suffix}",
                        cls_array,
                        dir="angular_power_spectra",
                        include_ccl_version=True,
                        extra_info=self.get_extra_info())
-        if want_all:
-            return cls_mat
-        else:
-            return cls_array
-    
-    def galaxy_galaxy_lensing_cls(self, include_gbias=True, include_ia=True, want_all = False):
+
+        return cls_array
+
+    def galaxy_galaxy_lensing_cls(self, include_gbias=True, include_ia=True, include_all_correlations=False):
         ia_bias = self.get_ia_bias() if include_ia else None
         gbias = self.get_gbias() if include_gbias else None
-        correlations = self.get_correlation_pairs()["galaxy_galaxy_lensing"]
-        if want_all:
-            correlations = self.get_correlation_pairs()["all"]
-        self.save_data("galaxy_galaxy_lensing",
-                       correlations,
+
+        # Select correlation pairs
+        correlation_pairs = (self.get_correlation_pairs_all()
+                             if include_all_correlations
+                             else self.get_correlation_pairs())["galaxy_galaxy_lensing"]
+
+        fname_suffix = "_all" if include_all_correlations else ""
+        filename_correlations = f"galaxy_galaxy_lensing_correlations{fname_suffix}"
+        self.save_data(filename_correlations,
+                       correlation_pairs,
                        dir="angular_power_spectra",
                        include_ccl_version=False)
+
+        # Initialize list for cls values
         cls_list = []
-        if want_all:
-            cls_mat = np.zeros((len(self.ells),len(self.lens_bins), len(self.source_bins)))
 
-        for idx_1, idx_2 in correlations:
-            tracer1 = ccl.NumberCountsTracer(self.cosmology,
-                                             has_rsd=False,
-                                             dndz=(self.redshift_range, self.lens_bins[idx_1]),
-                                             bias=gbias)
-            tracer2 = ccl.WeakLensingTracer(self.cosmology,
-                                            dndz=(self.redshift_range, self.source_bins[idx_2]),
-                                            ia_bias=ia_bias)
+        # Generate angular power spectra
+        for idx_1, idx_2 in correlation_pairs:
+            tracer1 = ccl.NumberCountsTracer(
+                self.cosmology,
+                has_rsd=False,
+                dndz=(self.redshift_range, self.lens_bins[idx_1]),
+                bias=gbias
+            )
+            tracer2 = ccl.WeakLensingTracer(
+                self.cosmology,
+                dndz=(self.redshift_range, self.source_bins[idx_2]),
+                ia_bias=ia_bias
+            )
 
-            # Compute Cl and append it to the list
-            cls_list.append(ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells))
-            if want_all:
-                cls_mat[:,idx_1,idx_2] = ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells)
+            cl_values = ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells)
+            cls_list.append(cl_values)
 
-        # Stack into a numpy array of shape (num_ells, num_cls)
+        # Stack into numpy array for saving
         cls_array = np.column_stack(cls_list)
-        # Save the data with version information
-        self.save_data("galaxy_galaxy_lensing_cls",
+        self.save_data(f"galaxy_galaxy_lensing_cls{fname_suffix}",
                        cls_array,
                        dir="angular_power_spectra",
                        include_ccl_version=True,
                        extra_info=self.get_extra_info())
-        if want_all:
-            return cls_mat
-        else:
-            return cls_array
-    
-    def galaxy_clustering_cls(self, include_gbias=True, want_all = False):
+
+        return cls_array
+
+    def galaxy_clustering_cls(self, include_gbias=True, include_all_correlations=False):
         gbias = self.get_gbias() if include_gbias else None
 
-        correlations = self.get_correlation_pairs()["galaxy_clustering"]
-        if want_all:
-            correlations = self.get_correlation_pairs()["all"]
-        self.save_data("galaxy_clustering_correlations",
-                       correlations,
+        # Select correlation pairs and set filenames
+        correlation_pairs = (self.get_correlation_pairs_all()
+                             if include_all_correlations
+                             else self.get_correlation_pairs())["galaxy_clustering"]
+
+        fname_suffix = "_all" if include_all_correlations else ""
+        filename_correlations = f"galaxy_clustering_correlations{fname_suffix}"
+        self.save_data(filename_correlations,
+                       correlation_pairs,
                        dir="angular_power_spectra",
                        include_ccl_version=False)
 
+        # Initialize list for cls values
         cls_list = []
-        if want_all:
-            cls_mat = np.zeros((len(self.ells),len(self.lens_bins), len(self.lens_bins)))
 
-        for idx_1, idx_2 in correlations:
-            tracer1 = ccl.NumberCountsTracer(self.cosmology,
-                                             has_rsd=False,
-                                             dndz=(self.redshift_range, self.lens_bins[idx_1]),
-                                             bias=gbias)
-            tracer2 = ccl.NumberCountsTracer(self.cosmology,
-                                             has_rsd=False,
-                                             dndz=(self.redshift_range, self.lens_bins[idx_2]),
-                                             bias=gbias)
+        for idx_1, idx_2 in correlation_pairs:
+            # Define both tracers for clustering
+            tracer1 = ccl.NumberCountsTracer(
+                self.cosmology,
+                has_rsd=False,
+                dndz=(self.redshift_range, self.lens_bins[idx_1]),
+                bias=gbias
+            )
+            tracer2 = ccl.NumberCountsTracer(
+                self.cosmology,
+                has_rsd=False,
+                dndz=(self.redshift_range, self.lens_bins[idx_2]),
+                bias=gbias
+            )
 
-            cls_list.append(ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells))
-            if want_all:
-                cls_mat[:,idx_1,idx_2] = ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells)
+            cl_values = ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells)
+            cls_list.append(cl_values)
 
+        # Stack into numpy array for saving
         cls_array = np.column_stack(cls_list)
-        # Save the data with version information
-        self.save_data("galaxy_clustering_cls",
+        self.save_data(f"galaxy_clustering_cls{fname_suffix}",
                        cls_array,
                        dir="angular_power_spectra",
                        include_ccl_version=True,
                        extra_info=self.get_extra_info())
-        if want_all:
-            return cls_mat
-        else:
-            return cls_array
+
+        return cls_array
 
     def get_wl_kernel(self, include_ia=True, return_chi=False):
         """
@@ -290,10 +305,20 @@ class DataVectors:
             "cosmic_shear": self.cosmic_shear_correlations(),
             "galaxy_galaxy_lensing": self.galaxy_galaxy_lensing_correlations(),
             "galaxy_clustering": self.galaxy_clustering_correlations(),
-            "all": self.all_correlations(),
         }
 
         return pairings
+
+    def get_correlation_pairs_all(self):
+
+            pairings = {
+                "cosmic_shear": self.shear_correlations_all(),
+                "galaxy_galaxy_lensing": self.gglensing_correlations_all(),
+                "galaxy_clustering": self.clustering_correlations_all(),
+                "all": self.all_correlations(),
+            }
+
+            return pairings
 
     def galaxy_clustering_correlations(self):
         """
@@ -350,6 +375,43 @@ class DataVectors:
                         selected_pairs.append((source_index, lens_index))
 
                 return selected_pairs
+
+    def shear_correlations_all(self):
+        """
+        Creates all possible combinations of source-source bin pairs for cosmic shear.
+
+        Returns:
+            list: List of all possible source-source bin pairs (i, j).
+        """
+        sources = self.source_bins
+        selected_pairs = list(itertools.product(sources.keys(), repeat=2))  # All combinations of source bins
+
+        return selected_pairs
+
+    def gglensing_correlations_all(self):
+        """
+        Creates all possible combinations of lens-source bin pairs for galaxy-galaxy lensing.
+
+        Returns:
+            list: List of all possible lens-source bin pairs (i, j).
+        """
+        lenses = self.lens_bins
+        sources = self.source_bins
+        selected_pairs = list(itertools.product(lenses.keys(), sources.keys()))  # All combinations of lens-source bins
+
+        return selected_pairs
+
+    def clustering_correlations_all(self):
+        """
+        Creates all possible combinations of lens-lens bin pairs for galaxy clustering.
+
+        Returns:
+            list: List of all possible lens-lens bin pairs (i, j).
+        """
+        lenses = self.lens_bins
+        selected_pairs = list(itertools.product(lenses.keys(), repeat=2))  # All combinations of lens bins
+
+        return selected_pairs
 
     def get_extra_info(self):
 
