@@ -5,3 +5,4 @@ from scripts.plotting import *
 from scripts.data_vector_metrics import *
 from scripts.nz_metrics import *
 from scripts.presets import Presets
+from scripts.galaxy_bias import GalaxyBias
