@@ -1,4 +1,4 @@
-# Forecasting Validation Project
+# Benchmarking Stability and Metrics for Robust Cosmological Forecasting in LSST DESC
 
 Welcome to the **Forecasting Validation Project** repository. This repository provides scripts, analyses, and validation tools as part of the **LSST DESC Forecasting Topical Team (TT)**. The primary focus is on validating angular power spectrum calculations in CCL to ensure robust cosmological forecasting.
 
