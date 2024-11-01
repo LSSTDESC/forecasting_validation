@@ -1,6 +1,14 @@
 # Benchmarking Stability and Metrics for Robust Cosmological Forecasting in LSST DESC
 
-Welcome to the **Forecasting Validation Project** repository. This repository provides scripts, analyses, and validation tools as part of the **LSST DESC Forecasting Topical Team (TT)**. The primary focus is on validating angular power spectrum calculations in CCL to ensure robust cosmological forecasting.
+Welcome to the **Forecasting Validation Project** repository. This repository provides scripts, analyses, and validation tools as part of the **LSST DESC Forecasting Topical Team (TT)**.  
+The primary focus is on validating angular power spectrum calculations in **CCL** to ensure robust cosmological forecasting.
+
+**Important:** The analyses here are **under development** and may be subject to change.  
+All analyses were performed for **predefined and fixed limiting magnitudes** of lens and source galaxy samples.  
+Additionally, other survey parameters, such as **sky area**, **galaxy number density**, and **redshift distributions** were kept constant.  
+They can be found in the configuration file called `"lsst_desc_parameters.yaml"` in the `"scripts"` directory.
+
+In case you need the analysis to be performed for different survey parameters, please update the configuration file accordingly and **document your changes**.
 
 ## Overview
 
