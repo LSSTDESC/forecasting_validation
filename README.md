@@ -58,12 +58,8 @@ The `DataVectorMetrics` class supports the analysis of cosmological data vectors
 3. **`get_delta_chi2`**:
    - Calculates the chi-squared difference between two sets of power spectra (galaxy clustering, galaxy-galaxy lensing, and cosmic shear).
    - Utilizes `cls_gc`, `cls_ggl`, and `cls_cs` arrays, reshaping them if necessary, to compute chi-squared values across bins and \(\ell\)-bins.
-  
-4. **`get_delta_chi2robert`**:
-   - Another approach to chi-squared difference calculation, compatible with specific setup requirements.
-   - This method leverages cross-terms between clustering, galaxy-galaxy lensing, and shear spectra for an accurate chi-squared comparison.
 
-5. **`kernel_peaks_z_resolution_and_zmax_sweep`**:
+4. **`kernel_peaks_z_resolution_and_zmax_sweep`**:
    - Performs a parametric sweep across both `zmax` and resolution, storing kernel peaks for both WL and NC.
    - Saves kernel peaks in nested dictionaries with flexibility for intrinsic alignment and galaxy bias.
 
