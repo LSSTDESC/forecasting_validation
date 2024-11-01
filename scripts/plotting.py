@@ -140,6 +140,10 @@ def plot_bin_centers_subplots(bin_centers_resolutions,
 
         axes[i].plot(resolutions, bin_center_values, marker='o', markersize=marker_size, c=colors[i])
         axes[i].set_ylabel(f"bin {bin_key + 1} centre")
+        axes[i].locator_params(axis='x', nbins=20)
+
+        # include ticks everywhere top bottom left right and inwards
+        axes[i].tick_params(axis='both', which='both', direction='in', top=True, right=True)
 
         #axes[i].legend(fontsize=18)
 
@@ -151,6 +155,8 @@ def plot_bin_centers_subplots(bin_centers_resolutions,
             lower_band = avg_bin_center - margin
             axes[i].fill_between(resolutions, lower_band, upper_band, color='gray', alpha=0.2,
                                  label=f"±{percentage}% Band (around average)")
+
+
 
             # Stabilization check: Find the first resolution with stable values within the band
             stable_count = 0
@@ -169,8 +175,6 @@ def plot_bin_centers_subplots(bin_centers_resolutions,
 
     # Set x-axis label on the last subplot
     axes[-1].set_xlabel("redshift resolution", fontsize=18)
-    # include ticks everywhere top bottom left right and inwards
-    plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
 
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     fig_name = f"{bin_type}_bin_centers_sweep_zmax{zmax}_y{forecast_year}{fig_format}"
@@ -307,5 +311,161 @@ def plot_stabilization_resolution_heatmap(bin_centers_by_zmax,
     # Save the figure
     fig_name = f"{bin_type}_stabilization_resolution_heatmap_zmax_sweep_y{forecast_year}{fig_format}"
     plt.savefig(f"plots_output/{fig_name}")
+    plt.show()
+
+
+def plot_kernel_peaks_z_resolution(peaks_by_resolution, kernel_type="wl", marker_size=5, fig_format=".pdf"):
+    """
+    Plot kernel peaks across different redshift resolutions.
+
+    Parameters:
+        peaks_by_resolution (dict): Output from kernel_peaks_z_resolution_sweep, a nested dictionary with resolutions as keys.
+                                    Format: {resolution: {"wl": [(z_peak, value_peak), ...], "nc": [(z_peak, value_peak), ...]}}
+        kernel_type (str): Which kernel to plot: "wl" for weak lensing, "nc" for number counts, or "both" for both.
+        marker_size (int): Size of the markers for the peaks (default: 5).
+        fig_format (str): File format for saving the figure (default: ".pdf").
+    """
+    # Extract resolutions and sort them for consistent plotting
+    resolutions = sorted(peaks_by_resolution.keys())
+
+    # Determine number of subplots based on kernel type
+    num_kernels = len(peaks_by_resolution[resolutions[0]][kernel_type]) if kernel_type in ["wl", "nc"] else max(
+        len(peaks_by_resolution[resolutions[0]]["wl"]), len(peaks_by_resolution[resolutions[0]]["nc"]))
+
+    # Generate distinct colors for each subplot/kernel
+    colors = get_colors(range(num_kernels))
+
+    # Set up subplots
+    fig, axes = plt.subplots(num_kernels, 1, figsize=(8, 2. * num_kernels), sharex=True)
+    fig.suptitle("Kernel Peaks Across Redshift Resolutions", fontsize=16, y=1.01)
+
+    # Make sure axes is always iterable
+    if num_kernels == 1:
+        axes = [axes]
+
+    # Plot each kernel peak in a separate subplot
+    for i in range(num_kernels):
+        for res in resolutions:
+            if kernel_type in ["wl", "both"]:
+                wl_peaks = peaks_by_resolution[res]["wl"]
+                if i < len(wl_peaks):  # Check if kernel i exists
+                    z_peak, _ = wl_peaks[i]
+                    axes[i].plot(res, z_peak, 'o', label="Weak Lensing" if res == resolutions[0] else "",
+                                 markersize=marker_size, c=colors[i])
+
+            if kernel_type in ["nc", "both"]:
+                nc_peaks = peaks_by_resolution[res]["nc"]
+                if i < len(nc_peaks):  # Check if kernel i exists
+                    z_peak, _ = nc_peaks[i]
+                    axes[i].plot(res, z_peak, 'o', label="Number Counts" if res == resolutions[0] else "",
+                                 markersize=marker_size, c=colors[i])
+
+        # Labeling each subplot
+        axes[i].set_ylabel(f"Kernel {i + 1} Peak z")
+        if i == num_kernels - 1:
+            axes[i].set_xlabel("Redshift Resolution")
+
+    # Add legend to the first subplot
+    axes[0].legend(loc='upper right')
+
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    fig_name = f"kernel_peaks_resolution_sweep{fig_format}"
+    plt.savefig(fig_name)
+    plt.show()
+
+    # Add legend to the first subplot
+    axes[0].legend(loc='upper right')
+
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    fig_name = f"kernel_peaks_resolution_sweep{fig_format}"
+    plt.savefig(fig_name)
+    plt.show()
+
+
+def plot_kernel_peaks_z_resolution(peaks_by_resolution, forecast_year, kernel_type="wl", percentage=0.1,
+                                   stability_steps=10, marker_size=3, fig_format=".pdf", title_pad=0.95):
+    """
+    Plot kernel peaks across different redshift resolutions.
+
+    Parameters:
+        peaks_by_resolution (dict): Output from kernel_peaks_z_resolution_sweep, a nested dictionary with
+                resolutions as keys. Format: {resolution: {"wl": [(z_peak, value_peak), ...], "nc": [(z_peak, value_peak), ...]}}
+        forecast_year (str): Forecasting year for the plot title.
+        kernel_type (str): Which kernel to plot: "wl" for weak lensing, "nc" for number counts.
+        marker_size (int): Size of the markers for the peaks (default: 5).
+        fig_format (str): File format for saving the figure (default: ".pdf").
+    """
+    # Extract resolutions and sort them for consistent plotting
+    resolutions = sorted(peaks_by_resolution.keys())
+
+    # Determine number of subplots based on kernel type
+    num_kernels = len(peaks_by_resolution[resolutions[0]][kernel_type]) if kernel_type in ["wl", "nc"] else max(
+        len(peaks_by_resolution[resolutions[0]]["wl"]), len(peaks_by_resolution[resolutions[0]]["nc"]))
+
+    # Generate distinct colors for each subplot/kernel
+    colors = get_colors(range(num_kernels))
+    fig, axes = plt.subplots(num_kernels, 1, figsize=(8, 2. * num_kernels), sharex=True)
+    prefix = f"LSST Y{forecast_year} WL" if kernel_type == "wl" else f"LSST Y{forecast_year} NC"
+    fig.suptitle(f"{prefix} Kernel Peaks Across Redshift Resolutions", fontsize=16, y=title_pad)
+
+    # Make sure axes is always iterable
+    if num_kernels == 1:
+        axes = [axes]
+
+    # Plot each kernel peak in a separate subplot
+    for i in range(num_kernels):
+        z_peaks = []
+        for res in resolutions:
+            if kernel_type == "wl":
+                wl_peaks = peaks_by_resolution[res]["wl"]
+                if i < len(wl_peaks):  # Check if kernel i exists
+                    z_peak, _ = wl_peaks[i]
+                    z_peaks.append(z_peak)
+            elif kernel_type == "nc":
+                nc_peaks = peaks_by_resolution[res]["nc"]
+                if i < len(nc_peaks):  # Check if kernel i exists
+                    z_peak, _ = nc_peaks[i]
+                    z_peaks.append(z_peak)
+
+        # Plot the line connecting all z_peaks for the current kernel
+        axes[i].plot(resolutions, z_peaks, '-o', markersize=marker_size, color=colors[i])
+
+        # Labeling each subplot
+        axes[i].set_ylabel(rf"$W^{i + 1} \: z_\mathrm{{peak}}$")
+        if i == num_kernels - 1:
+            axes[i].set_xlabel("Redshift Resolution", fontsize=18)
+
+        # include ticks everywhere top bottom left right and inwards
+        axes[i].tick_params(axis='both', which='both', direction='in', top=True, right=True)
+        # Set more ticks and finer detail on axes
+        axes[i].locator_params(axis='x', nbins=20)  # Adjusts the number of x-axis ticks
+
+        # Calculate average peak and percentage band
+        if percentage:
+            z_peaks = [peaks_by_resolution[res][kernel_type][i][0] for res in resolutions if
+                       i < len(peaks_by_resolution[res][kernel_type])]
+            avg_peak = np.mean(z_peaks)
+            margin = avg_peak * (percentage / 100)
+            upper_band = avg_peak + margin
+            lower_band = avg_peak - margin
+            axes[i].fill_between(resolutions, lower_band, upper_band, color='gray', alpha=0.2,
+                                 label=f"±{percentage}% Band (around average)")
+
+        # Optional stabilization check and line
+        stable_count = 0
+        for res, z_peak in zip(resolutions, z_peaks):
+            if lower_band <= z_peak <= upper_band:
+                stable_count += 1
+            else:
+                stable_count = 0
+            if stable_count >= stability_steps:
+                axes[i].axvline(x=res, color='red', linestyle='--', label=f'Stable at {res}')
+                axes[i].text(res, avg_peak, f'{res}', color='red', va='top', ha='right', fontsize=10, rotation=90)
+                break
+
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    fname_prefix = f"wl_y{forecast_year}_" if kernel_type == "wl" else f"nc_y{forecast_year}_"
+    fig_name = f"plots_output/{fname_prefix}kernel_peaks_resolution_sweep{fig_format}"
+    plt.savefig(fig_name)
     plt.show()
 
