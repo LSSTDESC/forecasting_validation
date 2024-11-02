@@ -7,13 +7,14 @@ import os
 class Presets:
     def __init__(self,
                  cosmology=None,
-                 redshift_max=3.5,
+                 redshift_max=5,
                  redshift_resolution=6000,
                  ell_min=20,
                  ell_max=2000,
                  ell_num=20,
                  forecast_year="1",
-                 perform_binning=True):
+                 perform_binning=True,
+                 should_save_data=True):
         # Set the cosmology to the user-defined value or a default if not provided
         if cosmology:
             self.cosmology = cosmology
@@ -49,6 +50,7 @@ class Presets:
         self.lens_parameters = lsst_desc_parameters["lens_sample"][self.forecast_year]
         self.source_parameters = lsst_desc_parameters["source_sample"][self.forecast_year]
         self.f_sky = lsst_desc_parameters["sky"]["frac_sky"] 
+        self.should_save_data = should_save_data
 
     def save_data(self, name, data, dir=None, extra_info=None, include_ccl_version=True):
         """

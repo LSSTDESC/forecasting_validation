@@ -29,6 +29,7 @@ class DataVectors:
         self.bin = TomographicBinning(presets)
         self.lens_bins = self.bin.lens_bins(save_file=False)
         self.source_bins = self.bin.source_bins(save_file=False)
+        self.should_save_data = presets.should_save_data
 
     def get_ia_bias(self):
         # For now just simple constant IA bias
@@ -47,11 +48,12 @@ class DataVectors:
                              if include_all_correlations
                              else self.get_correlation_pairs())["cosmic_shear"]
 
-        fname_suffix = "_all" if include_all_correlations else ""
-        self.save_data(f"cosmic_shear_correlations{fname_suffix}",
-                       correlation_pairs,
-                       dir="angular_power_spectra",
-                       include_ccl_version=False)
+        if self.should_save_data:
+            fname_suffix = "_all" if include_all_correlations else ""
+            self.save_data(f"cosmic_shear_correlations{fname_suffix}",
+                        correlation_pairs,
+                        dir="angular_power_spectra",
+                        include_ccl_version=False)
 
 
         # Initialize list for cls values
@@ -75,11 +77,12 @@ class DataVectors:
 
         # Stack into numpy array for saving
         cls_array = np.column_stack(cls_list)
-        self.save_data(f"cosmic_shear_cls{fname_suffix}",
-                       cls_array,
-                       dir="angular_power_spectra",
-                       include_ccl_version=True,
-                       extra_info=self.get_extra_info())
+        if self.should_save_data:
+            self.save_data(f"cosmic_shear_cls{fname_suffix}",
+                        cls_array,
+                        dir="angular_power_spectra",
+                        include_ccl_version=True,
+                        extra_info=self.get_extra_info())
 
         return cls_array
 
@@ -91,13 +94,13 @@ class DataVectors:
         correlation_pairs = (self.get_correlation_pairs_all()
                              if include_all_correlations
                              else self.get_correlation_pairs())["galaxy_galaxy_lensing"]
-
-        fname_suffix = "_all" if include_all_correlations else ""
-        filename_correlations = f"galaxy_galaxy_lensing_correlations{fname_suffix}"
-        self.save_data(filename_correlations,
-                       correlation_pairs,
-                       dir="angular_power_spectra",
-                       include_ccl_version=False)
+        if self.should_save_data:
+            fname_suffix = "_all" if include_all_correlations else ""
+            filename_correlations = f"galaxy_galaxy_lensing_correlations{fname_suffix}"
+            self.save_data(filename_correlations,
+                        correlation_pairs,
+                        dir="angular_power_spectra",
+                        include_ccl_version=False)
 
         # Initialize list for cls values
         cls_list = []
@@ -121,11 +124,12 @@ class DataVectors:
 
         # Stack into numpy array for saving
         cls_array = np.column_stack(cls_list)
-        self.save_data(f"galaxy_galaxy_lensing_cls{fname_suffix}",
-                       cls_array,
-                       dir="angular_power_spectra",
-                       include_ccl_version=True,
-                       extra_info=self.get_extra_info())
+        if self.should_save_data:
+            self.save_data(f"galaxy_galaxy_lensing_cls{fname_suffix}",
+                        cls_array,
+                        dir="angular_power_spectra",
+                        include_ccl_version=True,
+                        extra_info=self.get_extra_info())
 
         return cls_array
 
@@ -137,12 +141,13 @@ class DataVectors:
                              if include_all_correlations
                              else self.get_correlation_pairs())["galaxy_clustering"]
 
-        fname_suffix = "_all" if include_all_correlations else ""
-        filename_correlations = f"galaxy_clustering_correlations{fname_suffix}"
-        self.save_data(filename_correlations,
-                       correlation_pairs,
-                       dir="angular_power_spectra",
-                       include_ccl_version=False)
+        if self.should_save_data:
+            fname_suffix = "_all" if include_all_correlations else ""
+            filename_correlations = f"galaxy_clustering_correlations{fname_suffix}"
+            self.save_data(filename_correlations,
+                        correlation_pairs,
+                        dir="angular_power_spectra",
+                        include_ccl_version=False)
 
         # Initialize list for cls values
         cls_list = []
@@ -167,11 +172,12 @@ class DataVectors:
 
         # Stack into numpy array for saving
         cls_array = np.column_stack(cls_list)
-        self.save_data(f"galaxy_clustering_cls{fname_suffix}",
-                       cls_array,
-                       dir="angular_power_spectra",
-                       include_ccl_version=True,
-                       extra_info=self.get_extra_info())
+        if self.should_save_data:
+            self.save_data(f"galaxy_clustering_cls{fname_suffix}",
+                        cls_array,
+                        dir="angular_power_spectra",
+                        include_ccl_version=True,
+                        extra_info=self.get_extra_info())
 
         return cls_array
 
@@ -414,3 +420,4 @@ class DataVectors:
     def get_extra_info(self):
 
         return f"zmax{self.redshift_max}_zres{self.redshift_resolution}"
+
