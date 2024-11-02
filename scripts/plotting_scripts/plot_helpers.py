@@ -47,11 +47,11 @@ def plot_resolution_sweep_subplots(data_resolutions, labels, y_label, title, for
             axes[i].axvline(stable_res, color='red', linestyle='--')
             axes[i].text(
                 stable_res, avg_value, f'{stable_res}',
-                color='red', va='top', ha='right', fontsize=10,
+                color='red', va='top', ha='right', fontsize=12,
                 rotation=90,
                 bbox=dict(facecolor='white', edgecolor='none', alpha=0.7)  # Customize color and transparency
             )
-        axes[i].set_ylabel(f"{y_label} {label}", fontsize=16)
+        axes[i].set_ylabel(f"{y_label} {label}", fontsize=14)
         axes[i].legend(loc='upper right', fontsize=12, frameon=False)
 
     axes[-1].set_xlabel("redshift resolution", fontsize=16)

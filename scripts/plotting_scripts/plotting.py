@@ -18,7 +18,7 @@ def plot_tomo_peaks_zres_sweep(bin_centers_resolutions,
 
     ph.plot_resolution_sweep_subplots(data_resolutions,
                                       labels,
-                                      f"{bin_type}",
+                                      f"bin",
                                       f"{bin_type.capitalize()} bin centers across redshift resolutions",
                                       forecast_year,
                                       precision,
@@ -67,21 +67,6 @@ def plot_tomo_peaks_zres_and_zmax_sweep(bin_centers_by_zmax,
                                   annotate_max=annotate_max)
 
 
-def plot_gbias_values_zres_sweep(galaxy_bias_resolutions, forecast_year, precision=0.1, stability_steps=10,
-                                 marker_size=5):
-    labels = [f"{i + 1}" for i in range(len(galaxy_bias_resolutions[next(iter(galaxy_bias_resolutions))]))]
-    ph.plot_resolution_sweep_subplots(
-        data_resolutions={res: galaxy_bias_resolutions[res] for res in galaxy_bias_resolutions},
-        labels=labels,
-        y_label="Galaxy Bias",
-        title="Galaxy bias across redshift resolutions",
-        forecast_year=forecast_year,
-        precision=precision,
-        stability_steps=stability_steps,
-        marker_size=marker_size
-    )
-
-
 def plot_kernel_peaks_zres_sweep(peaks_by_resolution,
                                  forecast_year,
                                  kernel_type,
@@ -101,7 +86,7 @@ def plot_kernel_peaks_zres_sweep(peaks_by_resolution,
     ph.plot_resolution_sweep_subplots(
         data_resolutions=data_resolutions,
         labels=labels,
-        y_label="",
+        y_label="kernel",
         title=f"{kernel_type.upper()} kernel peaks across redshift resolutions",
         forecast_year=forecast_year,
         precision=precision,
@@ -147,6 +132,21 @@ def plot_kernel_peaks_zres_zmax_sweep(kernel_peaks_zres_zmax_sweep,
                                   title=f"{kernel_type.upper()} kernel stabilization resolution",
                                   forecast_year=forecast_year,
                                   annotate_max=annotate_max)
+
+
+def plot_gbias_values_zres_sweep(galaxy_bias_resolutions, forecast_year, precision=0.1, stability_steps=10,
+                                 marker_size=5):
+    labels = [f"{i + 1}" for i in range(len(galaxy_bias_resolutions[next(iter(galaxy_bias_resolutions))]))]
+    ph.plot_resolution_sweep_subplots(
+        data_resolutions={res: galaxy_bias_resolutions[res] for res in galaxy_bias_resolutions},
+        labels=labels,
+        y_label="bias at bin",
+        title="Galaxy bias across redshift resolutions",
+        forecast_year=forecast_year,
+        precision=precision,
+        stability_steps=stability_steps,
+        marker_size=marker_size
+    )
 
 
 def plot_gbias_value_zres_zmax_sweep(gbias_value_zres_zmax_sweep,
