@@ -16,6 +16,7 @@ class DataVectors:
         self.redshift_range = presets.redshift_range
         self.ells = presets.ells
         self.perform_binning = presets.perform_binning
+        self.robust_binning = presets.robust_binning
         self.forecast_year = presets.forecast_year
         self.redshift_max = presets.redshift_max
         self.redshift_resolution = presets.redshift_resolution
@@ -52,7 +53,7 @@ class DataVectors:
             fname_suffix = "_all" if include_all_correlations else ""
             self.save_data(f"cosmic_shear_correlations{fname_suffix}",
                         correlation_pairs,
-                        dir="angular_power_spectra",
+                        "angular_power_spectra",
                         include_ccl_version=False)
 
 
@@ -80,7 +81,7 @@ class DataVectors:
         if self.should_save_data:
             self.save_data(f"cosmic_shear_cls{fname_suffix}",
                         cls_array,
-                        dir="angular_power_spectra",
+                        "angular_power_spectra",
                         include_ccl_version=True,
                         extra_info=self.get_extra_info())
 
@@ -99,7 +100,7 @@ class DataVectors:
             filename_correlations = f"galaxy_galaxy_lensing_correlations{fname_suffix}"
             self.save_data(filename_correlations,
                         correlation_pairs,
-                        dir="angular_power_spectra",
+                        "angular_power_spectra",
                         include_ccl_version=False)
 
         # Initialize list for cls values
@@ -127,7 +128,7 @@ class DataVectors:
         if self.should_save_data:
             self.save_data(f"galaxy_galaxy_lensing_cls{fname_suffix}",
                         cls_array,
-                        dir="angular_power_spectra",
+                        "angular_power_spectra",
                         include_ccl_version=True,
                         extra_info=self.get_extra_info())
 
@@ -146,7 +147,7 @@ class DataVectors:
             filename_correlations = f"galaxy_clustering_correlations{fname_suffix}"
             self.save_data(filename_correlations,
                         correlation_pairs,
-                        dir="angular_power_spectra",
+                        "angular_power_spectra",
                         include_ccl_version=False)
 
         # Initialize list for cls values
@@ -175,7 +176,7 @@ class DataVectors:
         if self.should_save_data:
             self.save_data(f"galaxy_clustering_cls{fname_suffix}",
                         cls_array,
-                        dir="angular_power_spectra",
+                        "angular_power_spectra",
                         include_ccl_version=True,
                         extra_info=self.get_extra_info())
 

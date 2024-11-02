@@ -15,7 +15,7 @@ class SystematicsMetrics:
         self.lens_params = presets.lens_parameters
         self.save_data = presets.save_data
 
-    def compare_galaxy_bias_over_zresolutions(self, res_start=300, res_end=10000, step=50):
+    def galaxy_bias_zres_sweep(self, res_start=300, res_end=10000, step=50):
         """
         Compare galaxy bias values across a range of redshift resolutions.
 
@@ -44,7 +44,7 @@ class SystematicsMetrics:
 
         # Save the galaxy bias data
         extra_info = f"zmax{self.redshift_max}"
-        self.save_data("galaxy_bias_resolutions",
+        self.save_data("galaxy_bias_zres_sweep",
                        galaxy_bias_resolutions,
                        "galaxy_bias",
                        extra_info=extra_info,
@@ -52,13 +52,13 @@ class SystematicsMetrics:
 
         return galaxy_bias_resolutions
 
-    def compare_galaxy_bias_over_zresolutions_and_zmax(self,
-                                                       zmax_start=3.0,
-                                                       zmax_end=4.0,
-                                                       zmax_step=0.1,
-                                                       res_start=300,
-                                                       res_end=10000,
-                                                       res_step=50):
+    def galaxy_bias_zres_and_zmax_sweep(self,
+                                        zmax_start=3.0,
+                                        zmax_end=4.0,
+                                        zmax_step=0.1,
+                                        res_start=300,
+                                        res_end=10000,
+                                        res_step=50):
         """
         Compare galaxy bias values across a range of redshift resolutions and zmax values.
 
@@ -93,7 +93,7 @@ class SystematicsMetrics:
 
         # Save the galaxy bias data
         extra_info = f"zmax_range_{zmax_start}_to_{zmax_end}"
-        self.save_data("galaxy_bias_resolutions_by_zmax",
+        self.save_data("galaxy_bias_zres_zmax_sweep",
                        galaxy_bias_by_zmax,
                        "galaxy_bias",
                        extra_info=extra_info,

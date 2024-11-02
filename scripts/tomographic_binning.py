@@ -38,7 +38,8 @@ class TomographicBinning:
         self.source_params = presets.source_parameters
 
         self.save_data = presets.save_data
-        self.perfom_binning = presets.perform_binning
+        self.perform_binning = presets.perform_binning
+        self.robust_binning = presets.robust_binning
 
         # Load the redshift distributions with high precision
         self.nz = SRDRedshiftDistributions(presets)
@@ -141,8 +142,7 @@ class TomographicBinning:
                     normalized=True,
                     perform_binning=True,
                     save_file=True,
-                    tolerance=0.01,
-                    robust=False):
+                    tolerance=0.01,):
         """
         Split the initial redshift distribution of source galaxies into tomographic bins or return the original distribution.
 
@@ -181,7 +181,7 @@ class TomographicBinning:
         for index, (x1, x2) in enumerate(zip(bins[:-1], bins[1:])):
             z_bias = source_z_bias_list[index]
             z_variance = source_z_variance_list[index]
-            if robust:
+            if self.robust_binning:
                 dist = self.true_redshift_distribution_robust(x1, x2, z_variance, z_bias, self.source_nz)
             else:
                 dist = self.true_redshift_distribution(x1, x2, z_variance, z_bias, self.source_nz)
@@ -220,18 +220,15 @@ class TomographicBinning:
         combined_data = {'redshift_range': self.redshift_range, 'bins': source_redshift_distribution_dict}
 
         # Save the data if required
-        extra_info = f"_robust" if robust else ""
         if save_file:
             self.save_data("source_bins",
                            combined_data,
-                           dir="redshift_distributions",
-                           extra_info=extra_info,
+                           "redshift_distributions",
                            include_ccl_version=False)
 
         return source_redshift_distribution_dict
 
-
-    def lens_bins(self, normalized=True, perform_binning=True, save_file=True, robust=False):
+    def lens_bins(self, normalized=True, perform_binning=True, save_file=True):
         """
         Split the initial redshift distribution of lens galaxies (lenses) into tomographic bins or return the original distribution.
 
@@ -265,7 +262,7 @@ class TomographicBinning:
         for index, (x1, x2) in enumerate(zip(bins[:-1], bins[1:])):
             z_bias = lens_z_bias_list[index]
             z_variance = lens_z_variance_list[index]
-            if robust:
+            if self.robust_binning:
                 dist = self.true_redshift_distribution_robust(x1, x2, z_variance, z_bias, self.lens_nz)
             else:
                 dist = self.true_redshift_distribution(x1, x2, z_variance, z_bias, self.lens_nz)
@@ -285,12 +282,10 @@ class TomographicBinning:
         combined_data = {'redshift_range': self.redshift_range, 'bins': lens_redshift_distribution_dict}
 
         # Save the distributions to a file if specified
-        extra_info = f"_robust" if robust else ""
         if save_file:
             self.save_data("lens_bins",
                            combined_data,
-                           dir="redshift_distributions",
-                            extra_info=extra_info,
+                           "redshift_distributions",
                            include_ccl_version=False)
 
         return lens_redshift_distribution_dict
@@ -312,7 +307,7 @@ class TomographicBinning:
             bin_centers[bin_key] = round(self.redshift_range[max_index], decimal_places)
         return bin_centers
 
-    def lens_bin_centers(self, decimal_places=2, robust=False):
+    def lens_bin_centers(self, decimal_places=2):
         """
         Calculate and round the bin centers for the lens bins.
 
@@ -322,10 +317,10 @@ class TomographicBinning:
         Returns:
             dict: A dictionary with lens bin keys and their corresponding rounded bin centers.
         """
-        lens_bins = self.lens_bins(save_file=False, robust=robust)
+        lens_bins = self.lens_bins(save_file=False)
         return self.get_bin_centers(lens_bins, decimal_places)
 
-    def source_bin_centers(self, decimal_places=2, robust=False):
+    def source_bin_centers(self, decimal_places=2):
         """
         Calculate and round the bin centers for the source bins.
 
@@ -335,7 +330,7 @@ class TomographicBinning:
         Returns:
             dict: A dictionary with source bin keys and their corresponding rounded bin centers.
         """
-        source_bins = self.source_bins(save_file=False, robust=robust)
+        source_bins = self.source_bins(save_file=False)
         return self.get_bin_centers(source_bins, decimal_places)
 
     def get_galaxy_fraction_in_bin(self, bin_distribution):
@@ -457,14 +452,13 @@ class TomographicBinning:
             float: The redshift value at which n(z) matches nz_value, or None if not found.
         """
 
-
         # Select the appropriate redshift distribution based on the distribution type
-        if distribution_type == "sources":
-            nz_distribution = self.source_nz
-        elif distribution_type == "lenses":
-            nz_distribution = self.lens_nz
-        else:
-            raise ValueError("Invalid distribution type. Use 'source' or 'lens'.")
+
+        distribution_dict = {
+            "sources": self.source_nz,
+            "lenses": self.lens_nz
+        }
+        nz_distribution = distribution_dict[distribution_type]
 
         # Find the indices where n(z) matches nz_value
         indices = np.where(nz_distribution == nz_value)[0]

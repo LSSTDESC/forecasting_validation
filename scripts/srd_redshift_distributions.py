@@ -80,7 +80,7 @@ class SRDRedshiftDistributions:
         if save_file:
             self.save_data("source_sample",
                            combined_data,
-                           dir="redshift_distributions",
+                           directory="redshift_distributions",
                            include_ccl_version=False)
 
         return redshift_distribution
@@ -100,7 +100,7 @@ class SRDRedshiftDistributions:
         if save_file:
             self.save_data("lens_sample",
                            combined_data,
-                           dir="redshift_distributions",
+                           directory="redshift_distributions",
                            include_ccl_version=False)
 
         return redshift_distribution

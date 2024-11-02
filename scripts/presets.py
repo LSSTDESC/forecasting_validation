@@ -14,6 +14,7 @@ class Presets:
                  ell_num=20,
                  forecast_year="1",
                  perform_binning=True,
+                 robust_binning=False,
                  should_save_data=True):
         # Set the cosmology to the user-defined value or a default if not provided
         if cosmology:
@@ -31,6 +32,7 @@ class Presets:
         ell_range = np.geomspace(self.ell_min, self.ell_max, self.ell_num)
         self.ells = np.array(ell_range, dtype=np.float64)
         self.perform_binning = perform_binning
+        self.robust_binning = robust_binning
 
         self.ccl_version = ccl.__version__
 
@@ -52,32 +54,30 @@ class Presets:
         self.f_sky = lsst_desc_parameters["sky"]["frac_sky"] 
         self.should_save_data = should_save_data
 
-    def save_data(self, name, data, dir=None, extra_info=None, include_ccl_version=True):
+    def save_data(self, name, data, directory=None, extra_info=None, include_ccl_version=True):
         """
         Save data as a .npy file with the pyccl version included in the filename.
 
         Parameters:
             data (numpy.ndarray): The data to save.
             name (str): The base name for the file (without .npy extension).
-            dir (str): The subdirectory to save the file in (default: None).
+            directory (str): The subdirectory to save the file in (default: None).
             extra_info (str): Additional information to include in the filename (default: None).
-            include_version (bool): Whether to include the pyccl version in the filename (default: True).
+            include_ccl_version (bool): Whether to include the pyccl version in the filename (default: True).
         """
-        # Get the pyccl version
-        ccl_version = ccl.__version__
-        path = "data_output/"
 
         # Create the full subdirectory path if provided, otherwise use base path
-        subdir = os.path.join(path, dir) if dir else path
-        version = f"_ccl_v{ccl_version}" if include_ccl_version else ""
+        path = "data_output/"
+        subdir = os.path.join(path, directory) if directory else path
+        version = f"_ccl_v{ccl.__version__}" if include_ccl_version else ""
         info = f"_{extra_info}" if extra_info else ""
-
+        robust_info = "_robust" if self.robust_binning else ""
 
         # Create the directory if it doesn't exist
         os.makedirs(subdir, exist_ok=True)
 
         # Create the filename with pyccl version included
-        filename = os.path.join(subdir, f"{name}_y{self.forecast_year}{info}{version}.npy")
+        filename = os.path.join(subdir, f"{name}_y{self.forecast_year}{robust_info}{info}{version}.npy")
 
         # Save the data to a .npy file
         np.save(filename, data)

@@ -12,6 +12,7 @@ class KernelMetrics:
         self.presets = presets
         self.dv = DataVectors(presets)  # Store an instance of DataVectors for access to its methods
         self.redshift_range = self.dv.redshift_range
+        self.robust_binning = presets.robust_binning
         self.save_data = presets.save_data
 
     def get_kernel_peaks(self, kernel_array, redshift_range):
@@ -36,7 +37,7 @@ class KernelMetrics:
 
         return peaks
 
-    def kernel_peaks_zresolution_sweep(self, z_resolutions=None, include_ia=True, include_gbias=True):
+    def kernel_peaks_zres_sweep(self, z_resolutions=None, include_ia=True, include_gbias=True):
         """
         Perform a parametric sweep of redshift resolutions, calculating kernel peaks for each resolution
         for both weak lensing (WL) and number counts (NC) kernels.
@@ -60,7 +61,9 @@ class KernelMetrics:
             # Initialize the presets with updated redshift resolution
             temp_presets = Presets(redshift_max=self.presets.redshift_max,
                                    redshift_resolution=res,
-                                   forecast_year=self.presets.forecast_year)
+                                   forecast_year=self.presets.forecast_year,
+                                   perform_binning=self.presets.perform_binning,
+                                   robust_binning=self.robust_binning,)
 
             # Reinitialize DataVectors with updated presets and redshift range
             dv_temp = DataVectors(temp_presets)
@@ -86,28 +89,27 @@ class KernelMetrics:
                 "nc": nc_kernel_peaks
             }
 
-        data_path = "data_output/kernels/"
-        filename = f"kernel_peaks_zres_sweep_y{self.presets.forecast_year}.npy"
-        np.save(f"{data_path}{filename}", peaks_by_resolution)
+        self.save_data("kernel_peaks_zres_sweep",
+                       peaks_by_resolution,
+                       "kernels",
+                       include_ccl_version=True)
 
         return peaks_by_resolution
 
-    def kernel_peaks_z_resolution_and_zmax_sweep(self,
-                                                 kernel_type,
-                                                 zmax_start=3.0,
-                                                 zmax_end=4.0,
-                                                 zmax_step=0.1,
-                                                 res_start=300,
-                                                 res_end=10000,
-                                                 res_step=50,
-                                                 include_ia=True,
-                                                 include_gbias=True):
+    def kernel_peaks_zres_and_zmax_sweep(self,
+                                         zmax_start=3.0,
+                                         zmax_end=4.0,
+                                         zmax_step=0.1,
+                                         res_start=300,
+                                         res_end=10000,
+                                         res_step=50,
+                                         include_ia=True,
+                                         include_gbias=True):
         """
         Perform a parametric sweep of redshift resolutions and zmax values, calculating kernel peaks for each
         combination of zmax and resolution.
 
         Parameters:
-            kernel_type (str): Type of kernel to calculate ("wl" for weak lensing, "nc" for number counts).
             zmax_start (float): Starting value for zmax.
             zmax_end (float): Ending value for zmax.
             zmax_step (float): Step increment for zmax.
@@ -121,10 +123,6 @@ class KernelMetrics:
             dict: Nested dictionary with kernel peaks for each zmax and resolution.
                   Format: {str(zmax): {resolution: [(z_peak, value_peak), ...]}}
         """
-        # Raise an error if kernel_type is not valid
-        valid_kernel_types = ["wl", "nc"]
-        if kernel_type not in valid_kernel_types:
-            raise ValueError(f"Invalid kernel_type '{kernel_type}'. Must be one of {valid_kernel_types}.")
 
         peaks_by_zmax_and_resolution = {}
 
@@ -149,20 +147,19 @@ class KernelMetrics:
                 redshift_range = dv_temp.redshift_range
 
                 # Calculate kernel peaks based on kernel_type
-                if kernel_type == "wl" and include_ia:
-                    wl_kernel = dv_temp.get_wl_kernel(include_ia, return_chi=False)
-                    kernel_peaks = self.get_kernel_peaks(wl_kernel, redshift_range)
-                elif kernel_type == "nc" and include_gbias:
-                    nc_kernel = dv_temp.get_nc_kernel(include_gbias, return_chi=False)
-                    kernel_peaks = self.get_kernel_peaks(nc_kernel, redshift_range)
-                else:
-                    kernel_peaks = None
+                wl_kernel = dv_temp.get_wl_kernel(include_ia, return_chi=False)
+                wl_kernel_peaks = self.get_kernel_peaks(wl_kernel, redshift_range)
+                nc_kernel = dv_temp.get_nc_kernel(include_gbias, return_chi=False)
+                nc_kernel_peaks = self.get_kernel_peaks(nc_kernel, redshift_range)
 
                 # Store peaks in a nested dictionary format
-                peaks_by_zmax_and_resolution[zmax_key][resolution] = kernel_peaks
+                peaks_by_zmax_and_resolution[zmax_key][resolution] = {
+                    "wl": wl_kernel_peaks,
+                    "nc": nc_kernel_peaks
+                }
 
         # Save the full nested dictionary to a file
-        self.save_data(f"{kernel_type}_kernel_peaks_zmax_and_zres_sweep",
+        self.save_data("kernel_peaks_zres_and_zmax_sweep",
                        peaks_by_zmax_and_resolution,
                        "kernels",
                        include_ccl_version=True)

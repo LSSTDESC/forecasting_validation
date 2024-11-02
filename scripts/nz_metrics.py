@@ -14,17 +14,17 @@ class NZMetrics:
         self.redshift_max = presets.redshift_max
         self.redshift_resolution = presets.redshift_resolution
         self.perform_binning = presets.perform_binning
+        self.robust_binning = presets.robust_binning
         self.ell_min = presets.ell_min
         self.ell_max = presets.ell_max
         self.ell_num = presets.ell_num
         self.save_data = presets.save_data
 
-    def compare_bin_centers_over_zresolutions(self,
-                                              res_start=300,
-                                              res_end=10000,
-                                              step=50,
-                                              decimal_places=4,
-                                              robust=False):
+    def tomo_peaks_zres_sweep(self,
+                              res_start=300,
+                              res_end=10000,
+                              step=50,
+                              decimal_places=4):
         """
         Compare tomographic bin centers across a range of redshift resolutions.
 
@@ -58,10 +58,8 @@ class NZMetrics:
             tomographic_binning = TomographicBinning(presets)
 
             # Calculate bin centers for source and lens bins
-            source_bin_centers = tomographic_binning.source_bin_centers(decimal_places=decimal_places,
-                                                                        robust=robust)
-            lens_bin_centers = tomographic_binning.lens_bin_centers(decimal_places=decimal_places,
-                                                                    robust=robust)
+            source_bin_centers = tomographic_binning.source_bin_centers(decimal_places=decimal_places)
+            lens_bin_centers = tomographic_binning.lens_bin_centers(decimal_places=decimal_places)
 
             # Store results in the dictionary, using the resolution as the key
             bin_centers_resolutions[resolution] = {
@@ -70,9 +68,8 @@ class NZMetrics:
             }
 
         # Save the full dictionary to a file
-        robust_info = "_robust" if robust else ""
-        extra_info = f"zmax{self.redshift_max}{robust_info}"
-        self.save_data("bin_centers_resolutions",
+        extra_info = f"zmax{self.redshift_max}"
+        self.save_data("tomo_peaks_zres_sweep",
                        bin_centers_resolutions,
                        "bin_centers",
                        extra_info=extra_info,
@@ -80,14 +77,14 @@ class NZMetrics:
 
         return bin_centers_resolutions
 
-    def compare_bin_centers_over_zresolutions_and_zmax(self,
-                                                      zmax_start=3.0,
-                                                      zmax_end=4.0,
-                                                      zmax_step=0.1,
-                                                      res_start=300,
-                                                      res_end=10000,
-                                                      res_step=50,
-                                                      decimal_places=4):
+    def tomo_peaks_zres_and_zmax_sweep(self,
+                                       zmax_start=3.0,
+                                       zmax_end=4.0,
+                                       zmax_step=0.1,
+                                       res_start=300,
+                                       res_end=10000,
+                                       res_step=50,
+                                       decimal_places=4):
         """
         Compare tomographic bin centers across a range of redshift resolutions and zmax values.
 
@@ -106,7 +103,11 @@ class NZMetrics:
         bin_centers_by_zmax = {}
 
         for zmax in np.arange(zmax_start, zmax_end + zmax_step, zmax_step):
-            bin_centers_by_zmax[zmax] = {}
+            # Round zmax to 1 decimal place for dictionary key
+            # otherwise, floating point errors may cause issues
+            # when calling the dictionary keys
+            zmax_key = round(zmax, 1)
+            bin_centers_by_zmax[zmax_key] = {}
 
             for resolution in range(res_start, res_end + 1, res_step):
                 # Update Presets with the current resolution and zmax
@@ -118,7 +119,8 @@ class NZMetrics:
                     ell_max=self.ell_max,
                     ell_num=self.ell_num,
                     forecast_year=self.forecast_year,
-                    perform_binning=self.perform_binning
+                    perform_binning=self.perform_binning,
+                    robust_binning=self.robust_binning
                 )
 
                 # Reinitialize TomographicBinning with updated presets
@@ -129,18 +131,17 @@ class NZMetrics:
                 lens_bin_centers = tomographic_binning.lens_bin_centers(decimal_places=decimal_places)
 
                 # Store results in the dictionary, organized by zmax and resolution
-                bin_centers_by_zmax[zmax][resolution] = {
+                bin_centers_by_zmax[zmax_key][resolution] = {
                     "source_bin_centers": source_bin_centers,
                     "lens_bin_centers": lens_bin_centers
                 }
 
         # Save the full nested dictionary to a file
         extra_info = f"zmax_range_{zmax_start}_to_{zmax_end}"
-        self.save_data("bin_centers_resolutions_by_zmax",
+        self.save_data("tomo_peaks_zres_and_zmax_sweep",
                        bin_centers_by_zmax,
                        "bin_centers",
                        extra_info=extra_info,
                        include_ccl_version=True)
 
         return bin_centers_by_zmax
-
