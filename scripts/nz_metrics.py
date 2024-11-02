@@ -19,7 +19,12 @@ class NZMetrics:
         self.ell_num = presets.ell_num
         self.save_data = presets.save_data
 
-    def compare_bin_centers_over_zresolutions(self, res_start=300, res_end=10000, step=50, decimal_places=4):
+    def compare_bin_centers_over_zresolutions(self,
+                                              res_start=300,
+                                              res_end=10000,
+                                              step=50,
+                                              decimal_places=4,
+                                              robust=False):
         """
         Compare tomographic bin centers across a range of redshift resolutions.
 
@@ -53,8 +58,10 @@ class NZMetrics:
             tomographic_binning = TomographicBinning(presets)
 
             # Calculate bin centers for source and lens bins
-            source_bin_centers = tomographic_binning.source_bin_centers(decimal_places=decimal_places)
-            lens_bin_centers = tomographic_binning.lens_bin_centers(decimal_places=decimal_places)
+            source_bin_centers = tomographic_binning.source_bin_centers(decimal_places=decimal_places,
+                                                                        robust=robust)
+            lens_bin_centers = tomographic_binning.lens_bin_centers(decimal_places=decimal_places,
+                                                                    robust=robust)
 
             # Store results in the dictionary, using the resolution as the key
             bin_centers_resolutions[resolution] = {
@@ -62,7 +69,9 @@ class NZMetrics:
                 "lens_bin_centers": lens_bin_centers
             }
 
-        extra_info = f"zmax{self.redshift_max}"
+        # Save the full dictionary to a file
+        robust_info = "_robust" if robust else ""
+        extra_info = f"zmax{self.redshift_max}{robust_info}"
         self.save_data("bin_centers_resolutions",
                        bin_centers_resolutions,
                        "bin_centers",

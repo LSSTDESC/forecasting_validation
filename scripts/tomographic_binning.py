@@ -47,7 +47,6 @@ class TomographicBinning:
 
         self.save_data = presets.save_data
 
-
     def true_redshift_distribution_robust(self, upper_edge, lower_edge, variance, bias, redshift_distribution):
         """A function that returns the true redshift distribution of a galaxy sample.
         The true distribution of galaxies is defined as a convolution of an overall galaxy redshift distribution and
@@ -66,7 +65,8 @@ class TomographicBinning:
             true_redshift_distribution (array): true redshift distribution of a galaxy sample
         """
         # Define the scatter (sigma)
-        scatter = np.sqrt(variance) * (1 + self.redshift_range)
+        # variance is actually sigma, the photoz scatter
+        scatter = variance * (1 + self.redshift_range)
 
         # Discretize the range within each bin for more precise integration
         z_values = np.linspace(lower_edge - 3 * scatter, upper_edge + 3 * scatter, 100)
@@ -75,10 +75,10 @@ class TomographicBinning:
         p_z_ph_given_z = norm.pdf(z_values, loc=self.redshift_range + bias, scale=scatter)
 
         # Evaluate the overall redshift distribution for each z value
-        interp_redshift_dist = np.interp(z_values, self.redshift_range, redshift_distribution)
+        interpolated_redshift_distribution = np.interp(z_values, self.redshift_range, redshift_distribution)
 
         # Compute the true redshift distribution by summing over the range
-        true_redshift_distribution = np.trapz(interp_redshift_dist * p_z_ph_given_z, z_values)
+        true_redshift_distribution = np.trapz(interpolated_redshift_distribution * p_z_ph_given_z, z_values)
 
         return true_redshift_distribution
 
@@ -137,7 +137,12 @@ class TomographicBinning:
 
         return [redshift_range[0]] + bin_edges + [redshift_range[-1]]
 
-    def source_bins(self, normalized=True, perform_binning=True, save_file=True, tolerance=0.01):
+    def source_bins(self,
+                    normalized=True,
+                    perform_binning=True,
+                    save_file=True,
+                    tolerance=0.01,
+                    robust=False):
         """
         Split the initial redshift distribution of source galaxies into tomographic bins or return the original distribution.
 
@@ -149,7 +154,7 @@ class TomographicBinning:
             perform_binning (bool): Perform binning (default True). If False, return the original
                                     distribution in dictionary format.
             save_file (bool): Option to save the output file (default True).
-            ttolerance (float): Acceptable deviation for galaxy fraction between bins as a percentage
+            tolerance (float): Acceptable deviation for galaxy fraction between bins as a percentage
                                 (e.g., 1 for 1% tolerance).
 
         Returns:
@@ -176,7 +181,14 @@ class TomographicBinning:
         for index, (x1, x2) in enumerate(zip(bins[:-1], bins[1:])):
             z_bias = source_z_bias_list[index]
             z_variance = source_z_variance_list[index]
-            dist = self.true_redshift_distribution(x1, x2, z_variance, z_bias, self.source_nz)
+            if robust:
+                dist = self.true_redshift_distribution_robust(x1, x2, z_variance, z_bias, self.source_nz)
+            else:
+                dist = self.true_redshift_distribution(x1, x2, z_variance, z_bias, self.source_nz)
+
+            # Ensure `dist` has the same length as `self.redshift_range`
+            if len(dist) != len(self.redshift_range):
+                dist = np.interp(self.redshift_range, np.linspace(x1, x2, len(dist)), dist)
 
             # Normalize each bin individually if normalisation is True
             if normalized:
@@ -208,16 +220,18 @@ class TomographicBinning:
         combined_data = {'redshift_range': self.redshift_range, 'bins': source_redshift_distribution_dict}
 
         # Save the data if required
+        extra_info = f"_robust" if robust else ""
         if save_file:
             self.save_data("source_bins",
                            combined_data,
                            dir="redshift_distributions",
+                           extra_info=extra_info,
                            include_ccl_version=False)
 
         return source_redshift_distribution_dict
 
 
-    def lens_bins(self, normalized=True, perform_binning=True, save_file=True):
+    def lens_bins(self, normalized=True, perform_binning=True, save_file=True, robust=False):
         """
         Split the initial redshift distribution of lens galaxies (lenses) into tomographic bins or return the original distribution.
 
@@ -251,7 +265,14 @@ class TomographicBinning:
         for index, (x1, x2) in enumerate(zip(bins[:-1], bins[1:])):
             z_bias = lens_z_bias_list[index]
             z_variance = lens_z_variance_list[index]
-            dist = self.true_redshift_distribution(x1, x2, z_variance, z_bias, self.lens_nz)
+            if robust:
+                dist = self.true_redshift_distribution_robust(x1, x2, z_variance, z_bias, self.lens_nz)
+            else:
+                dist = self.true_redshift_distribution(x1, x2, z_variance, z_bias, self.lens_nz)
+
+            # Ensure `dist` has the same length as `self.redshift_range`
+            if len(dist) != len(self.redshift_range):
+                dist = np.interp(self.redshift_range, np.linspace(x1, x2, len(dist)), dist)
 
             # Normalize each bin individually if normalisation is True
             if normalized:
@@ -264,10 +285,12 @@ class TomographicBinning:
         combined_data = {'redshift_range': self.redshift_range, 'bins': lens_redshift_distribution_dict}
 
         # Save the distributions to a file if specified
+        extra_info = f"_robust" if robust else ""
         if save_file:
             self.save_data("lens_bins",
                            combined_data,
                            dir="redshift_distributions",
+                            extra_info=extra_info,
                            include_ccl_version=False)
 
         return lens_redshift_distribution_dict
@@ -289,7 +312,7 @@ class TomographicBinning:
             bin_centers[bin_key] = round(self.redshift_range[max_index], decimal_places)
         return bin_centers
 
-    def lens_bin_centers(self, decimal_places=2):
+    def lens_bin_centers(self, decimal_places=2, robust=False):
         """
         Calculate and round the bin centers for the lens bins.
 
@@ -299,10 +322,10 @@ class TomographicBinning:
         Returns:
             dict: A dictionary with lens bin keys and their corresponding rounded bin centers.
         """
-        lens_bins = self.lens_bins(save_file=False)
+        lens_bins = self.lens_bins(save_file=False, robust=robust)
         return self.get_bin_centers(lens_bins, decimal_places)
 
-    def source_bin_centers(self, decimal_places=2):
+    def source_bin_centers(self, decimal_places=2, robust=False):
         """
         Calculate and round the bin centers for the source bins.
 
@@ -312,7 +335,7 @@ class TomographicBinning:
         Returns:
             dict: A dictionary with source bin keys and their corresponding rounded bin centers.
         """
-        source_bins = self.source_bins(save_file=False)
+        source_bins = self.source_bins(save_file=False, robust=robust)
         return self.get_bin_centers(source_bins, decimal_places)
 
     def get_galaxy_fraction_in_bin(self, bin_distribution):

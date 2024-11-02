@@ -128,8 +128,6 @@ def plot_bin_centers_subplots(bin_centers_resolutions,
             axes[i].fill_between(resolutions, lower_band, upper_band, color='gray', alpha=0.2,
                                  label=f"±{precision}% Band (around average)")
 
-
-
             # Stabilization check: Find the first resolution with stable values within the band
             stable_count = 0
             for res, value in zip(resolutions, bin_center_values):
