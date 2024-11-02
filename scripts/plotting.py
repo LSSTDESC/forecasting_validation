@@ -415,13 +415,18 @@ def plot_kernel_stabilization_resolution_heatmap(kernel_peaks_by_zmax_and_resolu
         forecast_year (str): The forecast year (default "1").
         fig_format (str): File format for saving the figure (default ".pdf").
     """
+    # Validate kernel_type
+    valid_kernel_types = ["wl", "nc"]
+    if kernel_type not in valid_kernel_types:
+        raise ValueError(f"Invalid kernel_type '{kernel_type}'. Must be one of {valid_kernel_types}.")
+
     # Extract sorted `zmax` values and resolutions
     zmax_values = sorted(kernel_peaks_by_zmax_and_resolution.keys())
     sample_zmax = zmax_values[0]
     resolution_values = sorted(kernel_peaks_by_zmax_and_resolution[sample_zmax].keys())
 
     # Get the number of kernels for the specified kernel type
-    num_kernels = len(kernel_peaks_by_zmax_and_resolution[sample_zmax][resolution_values[0]][kernel_type])
+    num_kernels = len(kernel_peaks_by_zmax_and_resolution[sample_zmax][resolution_values[0]])
 
     # Initialize a matrix for stabilization resolution heatmap data
     heatmap_data = np.full((num_kernels, len(zmax_values)), np.nan)
@@ -429,29 +434,31 @@ def plot_kernel_stabilization_resolution_heatmap(kernel_peaks_by_zmax_and_resolu
     # Find the stabilization resolution for each `zmax` and kernel
     for zmax_idx, zmax in enumerate(zmax_values):
         for kernel_idx in range(num_kernels):
-            # Retrieve kernel peak values across resolutions for current `zmax` and kernel
+            # Retrieve kernel peak values across resolutions for the current `zmax` and kernel type
             kernel_peak_values = [
                 kernel_peaks_by_zmax_and_resolution[zmax][res][kernel_type][kernel_idx][0]
                 for res in resolution_values
-                if kernel_idx < len(kernel_peaks_by_zmax_and_resolution[zmax][res][kernel_type])
+                if kernel_type in kernel_peaks_by_zmax_and_resolution[zmax][res]
+                and kernel_idx < len(kernel_peaks_by_zmax_and_resolution[zmax][res][kernel_type])
             ]
 
             # Calculate stabilization based on precision band
-            avg_peak_value = np.mean(kernel_peak_values)
-            margin = avg_peak_value * (precision / 100)
-            upper_band = avg_peak_value + margin
-            lower_band = avg_peak_value - margin
+            if kernel_peak_values:
+                avg_peak_value = np.mean(kernel_peak_values)
+                margin = avg_peak_value * (precision / 100)
+                upper_band = avg_peak_value + margin
+                lower_band = avg_peak_value - margin
 
-            # Identify first stabilization resolution
-            stable_count = 0
-            for res_idx, value in enumerate(kernel_peak_values):
-                if lower_band <= value <= upper_band:
-                    stable_count += 1
-                    if stable_count >= stability_steps:
-                        heatmap_data[kernel_idx, zmax_idx] = resolution_values[res_idx]
-                        break
-                else:
-                    stable_count = 0  # Reset if outside band
+                # Identify first stabilization resolution
+                stable_count = 0
+                for res_idx, value in enumerate(kernel_peak_values):
+                    if lower_band <= value <= upper_band:
+                        stable_count += 1
+                        if stable_count >= stability_steps:
+                            heatmap_data[kernel_idx, zmax_idx] = resolution_values[res_idx]
+                            break
+                    else:
+                        stable_count = 0  # Reset if outside band
 
     # Create the heatmap plot
     cmap = cmr.get_sub_cmap('cmr.pride', 0.15, 0.85)
@@ -473,7 +480,7 @@ def plot_kernel_stabilization_resolution_heatmap(kernel_peaks_by_zmax_and_resolu
     ax.set_title(f"{kernel_label} kernel stabilization across $z_\\mathrm{{max}}$ LSST Y{forecast_year}",
                  fontsize=14)
     ax.set_xlabel("$z_\\mathrm{max}$", fontsize=12)
-    ax.set_ylabel("kernel index", fontsize=12)
+    ax.set_ylabel("Kernel index", fontsize=12)
 
     # Save the figure
     fig_name = f"{kernel_type}_kernel_stabilization_resolution_heatmap_zmax_sweep_y{forecast_year}{fig_format}"

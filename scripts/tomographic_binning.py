@@ -3,6 +3,7 @@ from scipy.integrate import cumulative_trapezoid
 from scipy.special import erf
 from scripts.srd_redshift_distributions import SRDRedshiftDistributions
 from scripts.presets import Presets
+from scipy.stats import norm
 
 
 # noinspection PyMethodMayBeStatic,DuplicatedCode
@@ -45,6 +46,41 @@ class TomographicBinning:
         self.lens_nz = np.array(self.nz.lens_sample(save_file=False), dtype=np.float64)
 
         self.save_data = presets.save_data
+
+
+    def true_redshift_distribution_robust(self, upper_edge, lower_edge, variance, bias, redshift_distribution):
+        """A function that returns the true redshift distribution of a galaxy sample.
+        The true distribution of galaxies is defined as a convolution of an overall galaxy redshift distribution and
+        a probability distribution p(z_ph | z) at a given z (z_ph is a photometric distribution at a given z).
+        Overall galaxy redshift distribution is a Smail type distribution (n(z) = (z/z_0)^alpha exp[-(z/z_0)^beta]).
+        The true distribution defined here is following Ma, Hu & Huterer 2018
+        (see https://arxiv.org/abs/astro-ph/0506614 eq. 6).
+
+        Arguments:
+            upper_edge (float): upper edge of the redshift bin
+            lower_edge (float): lower edge of the redshift bin
+            variance (float): variance of the photometric distribution
+            bias (float): bias of the photometric distribution
+            redshift_distribution (array): overall galaxy redshift distribution
+        Returns:
+            true_redshift_distribution (array): true redshift distribution of a galaxy sample
+        """
+        # Define the scatter (sigma)
+        scatter = np.sqrt(variance) * (1 + self.redshift_range)
+
+        # Discretize the range within each bin for more precise integration
+        z_values = np.linspace(lower_edge - 3 * scatter, upper_edge + 3 * scatter, 100)
+
+        # Compute the photometric distribution centered on z with bias and scatter
+        p_z_ph_given_z = norm.pdf(z_values, loc=self.redshift_range + bias, scale=scatter)
+
+        # Evaluate the overall redshift distribution for each z value
+        interp_redshift_dist = np.interp(z_values, self.redshift_range, redshift_distribution)
+
+        # Compute the true redshift distribution by summing over the range
+        true_redshift_distribution = np.trapz(interp_redshift_dist * p_z_ph_given_z, z_values)
+
+        return true_redshift_distribution
 
     def true_redshift_distribution(self, upper_edge, lower_edge, variance, bias, redshift_distribution):
         """A function that returns the true redshift distribution of a galaxy sample.

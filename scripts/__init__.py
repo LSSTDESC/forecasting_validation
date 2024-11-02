@@ -7,3 +7,4 @@ from scripts.nz_metrics import *
 from scripts.presets import Presets
 from scripts.galaxy_bias import GalaxyBias
 from scripts.systematics_metrics import SystematicsMetrics
+from scripts.kernel_metrics import KernelMetrics
