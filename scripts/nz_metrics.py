@@ -1,6 +1,10 @@
 import numpy as np
 from scripts.tomographic_binning import TomographicBinning
 from scripts.presets import Presets
+from scipy.integrate import cumulative_trapezoid
+
+from scipy.interpolate import interp1d
+from scipy.integrate import cumtrapz
 
 
 class NZMetrics:
@@ -13,12 +17,16 @@ class NZMetrics:
         self.forecast_year = presets.forecast_year
         self.redshift_max = presets.redshift_max
         self.redshift_resolution = presets.redshift_resolution
+        self.redshift_range = presets.redshift_range
         self.perform_binning = presets.perform_binning
         self.robust_binning = presets.robust_binning
         self.ell_min = presets.ell_min
         self.ell_max = presets.ell_max
         self.ell_num = presets.ell_num
         self.save_data = presets.save_data
+
+        self.source_bins = TomographicBinning(presets).source_bins()
+        self.lens_bins = TomographicBinning(presets).lens_bins()
 
     def tomo_peaks_zres_sweep(self,
                               res_start=300,
@@ -145,3 +153,98 @@ class NZMetrics:
                        include_ccl_version=True)
 
         return bin_centers_by_zmax
+
+    def _generate_draws(self, bin_dict, num_draws, seed):
+        """
+        Generate random draws based on a dictionary of bins.
+
+        Parameters:
+            bin_dict (dict): A dictionary where each key is a bin index and each value is the PDF for that bin.
+            num_draws (int): The number of random draws to generate for each bin.
+            seed (int): Seed for random number generator.
+
+        Returns:
+            dict: A dictionary where each bin index maps to an array of random draws.
+        """
+        np.random.seed(seed)  # Set a fixed random seed for reproducibility
+
+        random_draws = {}
+
+        # Use numpy vectorization to generate CDFs and perform interpolation for all bins
+        for bin_key, pdf in bin_dict.items():
+            # Compute the CDF using cumulative trapezoidal integration
+            cdf = cumulative_trapezoid(pdf, self.redshift_range, initial=0)
+            cdf /= cdf[-1]  # Normalize the CDF
+
+            # Generate random draws using numpy.interp
+            random_values = np.random.rand(num_draws)  # Uniform random values between 0 and 1
+            random_draws[bin_key] = np.interp(random_values, cdf, self.redshift_range)
+
+        return random_draws
+
+    def generate_tomo_draws(self, bin_type, num_draws=10**3, seed=42, num_points=200):
+        """
+            Generate and analyze random tomographic redshift draws for a specified bin type (either source or lens bins).
+
+            Parameters:
+                bin_type (str): Type of bin to generate draws for. Options are "source" or "lens".
+                num_draws (int): The number of random draws to generate for each bin. Default is 1000.
+                seed (int): Seed for random number generator for reproducibility. Default is 42.
+                num_points (int): Number of different bin sizes to analyze within each histogram. Default is 200.
+
+            Returns:
+                np.ndarray: A 3D array of shape (num_bins, num_points, 2) containing peak redshift information for each
+                            tomographic bin and binning configuration.
+
+            Output Array Structure:
+                The output array, `max_values`, has dimensions `(num_bins, num_points, 2)`, where:
+                - `num_bins` is the number of tomographic bins in `bin_type`.
+                - `num_points` represents the number of different binning configurations (histogram bin sizes) analyzed.
+                - Each entry `max_values[bin_index][idx]` contains two values:
+                    - `num_bins_in_hist` (int): Number of bins in the histogram for this configuration, given by
+                      `50 * (np.arange(num_points) + 1)`.
+                    - `peak_bin_center` (float): Center of the bin with the highest density (peak) in the histogram for
+                      this configuration, representing the most probable redshift in that binning scheme.
+
+            Description:
+                1. For each tomographic bin (source or lens), this method generates random redshift draws using
+                   inverse transform sampling based on the bin's PDF.
+                2. Histograms are created for each bin using different bin sizes (defined by `50 * (np.arange(num_points) + 1)`).
+                3. For each histogram, the bin center with the highest density is recorded to capture the peak redshift.
+                4. Results are saved to a file with metadata specifying the number of draws, seed, and number of points.
+
+            Example:
+                max_values = generate_tomo_draws("source", num_draws=1000, seed=42, num_points=200)
+            """
+        bin_type_dict = {
+            "source": self.source_bins,
+            "lens": self.lens_bins
+        }
+
+        bins = bin_type_dict[bin_type]
+        num_bins = len(bins.keys())  # Determine the number of bins dynamically
+
+        max_values = np.empty((num_bins, num_points, 2), float)
+        random_draws = self._generate_draws(bins, num_draws, seed)
+
+        # Define bin sizes once, reducing repeated computation in the inner loop
+        bin_sizes = 50 * (np.arange(num_points) + 1)
+
+        # Predefine bin centers array outside loop to avoid redundant calculations
+        for bin_index, (bin_key, draws) in enumerate(random_draws.items()):
+            # Precompute histograms and centers in a vectorized way if possible
+            for idx, num_bins_in_hist in enumerate(bin_sizes):
+                # Generate histograms only if the bin size is new; avoid re-computation
+                hist, bin_edges = np.histogram(draws, bins=num_bins_in_hist, density=True)
+                bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+                max_idx = np.argmax(hist)
+                max_values[bin_index][idx] = [num_bins_in_hist, bin_centers[max_idx]]
+
+        # Save the data with efficient handling
+        self.save_data(f"{bin_type}_tomo_bin_draws",
+                       max_values,
+                       "bin_centers",
+                       extra_info=f"numdraws{num_draws:.0e}_seed{seed}_numpts{num_points}",
+                       include_ccl_version=True)
+
+        return max_values

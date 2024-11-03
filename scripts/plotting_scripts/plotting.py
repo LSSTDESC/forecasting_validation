@@ -287,3 +287,87 @@ def plot_stabilization_vs_precision(bin_centers_resolutions,
 
     plt.tight_layout()
     plt.show()
+
+
+def plot_tomo_draw_resolution_sweep(max_values, bin_type, y_label="Peak Redshift",
+                                    title="Tomographic Bin Peak Redshifts",
+                                    forecast_year=1, precision=5, stability_steps=10, marker_size=5, fig_format=".pdf"):
+    """
+    Prepare data and plot the resolution sweep of peak redshift values for tomographic bins.
+
+    Parameters:
+        max_values (np.ndarray): Array of shape (num_bins, num_points, 2) from `generate_tomo_draws`.
+        bin_type (str): Type of bin being processed, either "source" or "lens".
+        y_label (str): Label for the y-axis in the plot. Default is "Peak Redshift".
+        title (str): Title of the plot. Default is "Tomographic Bin Peak Redshifts".
+        forecast_year (int): Forecast year to label the plot.
+        precision (int): Percentage margin to show stabilization bounds. Default is 5.
+        stability_steps (int): Minimum number of consecutive resolutions for stabilization. Default is 10.
+        marker_size (int): Marker size for the plot points. Default is 5.
+        fig_format (str): Format for saving the figure, e.g., ".pdf" or ".png". Default is ".pdf".
+
+    Returns:
+        None: Saves and displays the resolution sweep plot.
+    """
+    # Step 1: Prepare `data_resolutions` dictionary from max_values array
+    num_bins, num_points, _ = max_values.shape
+    data_resolutions = {int(max_values[0, i, 0]): [] for i in range(num_points)}
+
+    for point_idx in range(num_points):
+        resolution = int(max_values[0, point_idx, 0])
+        peaks = [max_values[bin_idx, point_idx, 1] for bin_idx in range(num_bins)]
+        data_resolutions[resolution] = peaks
+
+    # Step 2: Define labels for bins
+    labels = [f"Bin {i}" for i in range(num_bins)]
+    colors = ph.get_colors(len(labels))
+
+    # Step 3: Plotting
+    resolutions = sorted(data_resolutions.keys())
+    fig, axes = plt.subplots(num_bins, 1, figsize=(8, 2. * num_bins), sharex=True)
+    fig.suptitle(f"{title} LSST Y{forecast_year}", fontsize=18)
+    axes = [axes] if num_bins == 1 else axes  # Make `axes` iterable
+
+    for i, label in enumerate(labels):
+        data_values = [data_resolutions[res][i] for res in resolutions]
+        avg_value = np.mean(data_values)
+
+        # Set default values for upper_band and lower_band in case precision is None or 0
+        lower_band, upper_band = avg_value, avg_value
+        if precision:
+            margin = avg_value * (precision / 100)
+            upper_band, lower_band = avg_value + margin, avg_value - margin
+            axes[i].fill_between(resolutions, lower_band, upper_band, color='lightgray', alpha=0.3,
+                                 label=f"{precision}% margin")
+
+        # Plot data points
+        axes[i].plot(resolutions, data_values, '-o', markersize=marker_size, color=colors[i])
+
+        # Stabilization check
+        stable_count = 0
+        stable_res = None
+        for res, value in zip(resolutions, data_values):
+            if lower_band <= value <= upper_band:
+                stable_count += 1
+                if stable_count >= stability_steps:
+                    stable_res = res
+                    break
+            else:
+                stable_count = 0
+
+        if stable_res:
+            axes[i].axvline(stable_res, color='red', linestyle='--')
+            axes[i].text(
+                stable_res, avg_value, f'{stable_res}',
+                color='red', va='top', ha='right', fontsize=12, rotation=90,
+                bbox=dict(facecolor='white', edgecolor='none', alpha=0.7)
+            )
+
+        axes[i].set_ylabel(f"{label}", fontsize=14)
+        axes[i].legend(loc='lower right', fontsize=12, frameon=True)
+
+    axes[-1].set_xlabel("redshift resolution", fontsize=16)
+    fig_name = f"{title.replace(' ', '_').lower()}_{forecast_year}_{bin_type}_bins{fig_format}".replace("__", "_")
+    plt.savefig(f"plots_output/{fig_name}")
+    plt.tight_layout()
+    plt.show()
