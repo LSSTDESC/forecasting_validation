@@ -20,7 +20,13 @@ class Presets:
         if cosmology:
             self.cosmology = cosmology
         else:
-            self.cosmology = ccl.Cosmology(Omega_c=0.27, Omega_b=0.045, h=0.67, sigma8=0.83, n_s=0.96)
+            self.cosmology = ccl.Cosmology(Omega_c=(0.3156 - 0.0491685),
+                                           Omega_b=0.0491685,
+                                           h=0.6727,
+                                           sigma8=0.831,
+                                           n_s=0.9645,
+                                           w0=-1,
+                                           wa=0)
 
         self.redshift_max = redshift_max
         self.redshift_resolution = redshift_resolution

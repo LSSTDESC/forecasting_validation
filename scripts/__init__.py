@@ -9,3 +9,4 @@ from scripts.galaxy_bias import GalaxyBias
 from scripts.systematics_metrics import SystematicsMetrics
 from scripts.kernel_metrics import KernelMetrics
 from scripts.plotting_scripts.plot_helpers import *
+from scripts.power_spectra_analysis import PowerSpectraAnalysis
