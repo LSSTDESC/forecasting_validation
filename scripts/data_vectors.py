@@ -3,7 +3,7 @@ import pyccl as ccl
 from .srd_redshift_distributions import SRDRedshiftDistributions
 from .tomographic_binning import TomographicBinning
 from .presets import Presets
-import itertools
+import time
 
 
 class DataVectors:
@@ -92,9 +92,9 @@ class DataVectors:
         gbias = self.get_gbias() if include_gbias else None
 
         # Select correlation pairs
-        correlation_pairs = (self.get_correlation_pairs_all()
+        correlation_pairs = (self.get_correlation_pairs_all()["galaxy_galaxy_lensing"]
                              if include_all_correlations
-                             else self.get_correlation_pairs())["galaxy_galaxy_lensing"]
+                             else self.get_correlation_pairs()["galaxy_galaxy_lensing"])
         if self.should_save_data:
             fname_suffix = "_all" if include_all_correlations else ""
             filename_correlations = f"galaxy_galaxy_lensing_correlations{fname_suffix}"
@@ -108,6 +108,8 @@ class DataVectors:
 
         # Generate angular power spectra
         for idx_1, idx_2 in correlation_pairs:
+            start_time = time.time()
+            print(f"calculating ggl for lens bin {idx_1} and source bin {idx_2}")
             tracer1 = ccl.NumberCountsTracer(
                 self.cosmology,
                 has_rsd=False,
@@ -121,6 +123,8 @@ class DataVectors:
             )
 
             cl_values = ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells)
+            end_time = time.time()
+            print(f"Calculated cl for pair ({idx_1}, {idx_2}) in {end_time - start_time:.2f} seconds")
             cls_list.append(cl_values)
 
         # Stack into numpy array for saving
@@ -290,22 +294,6 @@ class DataVectors:
                 selected_pairs.append((source_keys[j], source_keys[i]))
         return selected_pairs
 
-    def all_correlations(self):
-        """
-        Calculates the source-source bin pairs for cosmic shear.
-
-        Returns:
-            list: List of all possible source-source bin pairs.
-        """
-
-        sources = self.source_bins
-        selected_pairs = []
-        source_keys = list(sources.keys())
-        for i in range(len(source_keys)):
-            for j in range(len(source_keys)):
-                selected_pairs.append((source_keys[j], source_keys[i]))
-        return selected_pairs
-
     def get_correlation_pairs(self):
 
         pairings = {
@@ -322,7 +310,6 @@ class DataVectors:
                 "cosmic_shear": self.shear_correlations_all(),
                 "galaxy_galaxy_lensing": self.gglensing_correlations_all(),
                 "galaxy_clustering": self.clustering_correlations_all(),
-                "all": self.all_correlations(),
             }
 
             return pairings
@@ -336,7 +323,6 @@ class DataVectors:
          """
 
         lenses = self.lens_bins
-
         selected_pairs = [(i, i) for i in lenses.keys()]
 
         return selected_pairs
@@ -388,8 +374,11 @@ class DataVectors:
         Returns:
             list: List of all possible source-source bin pairs (i, j).
         """
-        sources = self.source_bins
-        selected_pairs = list(itertools.product(sources.keys(), repeat=2))  # All combinations of source bins
+        selected_pairs = []
+        source_keys = list(self.source_bins.keys())
+        for i in source_keys:
+            for j in source_keys:
+                selected_pairs.append((i, j))
 
         return selected_pairs
 
@@ -400,9 +389,12 @@ class DataVectors:
         Returns:
             list: List of all possible lens-source bin pairs (i, j).
         """
-        lenses = self.lens_bins
-        sources = self.source_bins
-        selected_pairs = list(itertools.product(lenses.keys(), sources.keys()))  # All combinations of lens-source bins
+        selected_pairs = []
+        lens_keys = list(self.lens_bins.keys())
+        source_keys = list(self.source_bins.keys())
+        for i in lens_keys:
+            for j in source_keys:
+                selected_pairs.append((i, j))
 
         return selected_pairs
 
@@ -413,8 +405,11 @@ class DataVectors:
         Returns:
             list: List of all possible lens-lens bin pairs (i, j).
         """
-        lenses = self.lens_bins
-        selected_pairs = list(itertools.product(lenses.keys(), repeat=2))  # All combinations of lens bins
+        selected_pairs = []
+        lens_keys = list(self.lens_bins.keys())
+        for i in lens_keys:
+            for j in lens_keys:
+                selected_pairs.append((i, j))
 
         return selected_pairs
 
