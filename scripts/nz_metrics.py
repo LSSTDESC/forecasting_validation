@@ -248,3 +248,114 @@ class NZMetrics:
                        include_ccl_version=True)
 
         return max_values
+
+    def load_and_bootstrap_peak_estimates(self,
+                                          bin_type,
+                                          forecast_year,
+                                          num_bootstrap=100,
+                                          seed=42,
+                                          num_points=200):
+        """
+        Load precomputed tomographic bin draws for a given forecast year and perform bootstrapping
+        to estimate confidence intervals on peak redshifts for different histogram configurations.
+
+        Parameters:
+            bin_type (str): Type of bin to generate draws for ("source" or "lens").
+            forecast_year (int): Forecast year to load precomputed data (e.g., 1, 5, 10).
+            num_bootstrap (int): Number of bootstrap samples to generate.
+            seed (int): Seed for reproducibility.
+            num_points (int): Number of different bin sizes to analyze.
+
+        Returns:
+            dict: Dictionary of peak redshift distributions for each histogram bin size.
+        """
+        np.random.seed(seed)
+
+        # Load precomputed data based on forecast year and bin type
+        file_path = f"data_input/{bin_type}_tomo_bin_draws_forecast_year_{forecast_year}.npz"
+        with np.load(file_path, allow_pickle=True) as data:
+            max_values = data['bin_centers']  # Assuming "bin_centers" holds the 3D array max_values
+
+        # Initialize dictionary to store bootstrapped peak estimates for each histogram bin size
+        bin_sizes = 50 * (np.arange(num_points) + 1)
+        bootstrap_peaks = {bin_size: [] for bin_size in bin_sizes}
+
+        # Loop over each bin in the max_values array
+        for bin_index in range(max_values.shape[0]):
+            # Extract original draws for each bin
+            draws = max_values[bin_index, :, 1]  # Extract peak bin centers from max_values (2nd column)
+
+            for bin_size in bin_sizes:
+                peaks = []
+                for _ in range(num_bootstrap):
+                    # Resample with replacement from precomputed draws
+                    bootstrap_sample = np.random.choice(draws, size=len(draws), replace=True)
+
+                    # Generate histogram and find peak
+                    hist, bin_edges = np.histogram(bootstrap_sample, bins=bin_size, density=True)
+                    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+                    peak_bin_center = bin_centers[np.argmax(hist)]
+                    peaks.append(peak_bin_center)
+
+                # Store all bootstrap peaks for the current bin size
+                bootstrap_peaks[bin_size].append(np.array(peaks))
+
+        return bootstrap_peaks
+ 
+    def load_and_bootstrap_resolution_intervals(self,
+                                                forecast_year,
+                                                num_bootstrap=100,
+                                                seed=42,
+                                                decimal_places=4):
+        """
+        Load precomputed bin centers for different resolutions for a given forecast year and perform bootstrapping
+        to estimate confidence intervals on these centers.
+
+        Parameters:
+            forecast_year (int): Forecast year to load precomputed data. Accepts only 1 and 10 for now.
+            num_bootstrap (int): Number of bootstrap samples for each resolution.
+            seed (int): Seed for reproducibility.
+            decimal_places (int): Number of decimal places for rounding.
+
+        Returns:
+            dict: Nested dictionary with mean and confidence intervals for each resolution.
+        """
+
+        np.random.seed(seed)
+
+        # Load precomputed bin centers across resolutions based on forecast year
+        file_path = f"data_input/forecast_year_{forecast_year}_bin_centers_resolutions.npz"
+        with np.load(file_path, allow_pickle=True) as data:
+            bin_centers_resolutions = data['bin_centers_resolutions'].item()
+
+        res_intervals = {}
+
+        for resolution, centers in bin_centers_resolutions.items():
+            source_bin_centers = np.round(centers["source_bin_centers"], decimals=decimal_places)
+            lens_bin_centers = np.round(centers["lens_bin_centers"], decimals=decimal_places)
+
+            # Perform bootstrapping on source and lens bin centers
+            source_bootstrap_means = []
+            lens_bootstrap_means = []
+
+            for _ in range(num_bootstrap):
+                source_resample = np.random.choice(source_bin_centers, size=len(source_bin_centers), replace=True)
+                lens_resample = np.random.choice(lens_bin_centers, size=len(lens_bin_centers), replace=True)
+                source_bootstrap_means.append(np.mean(source_resample))
+                lens_bootstrap_means.append(np.mean(lens_resample))
+
+            # Calculate mean and confidence intervals for this resolution
+            source_mean = np.mean(source_bootstrap_means)
+            source_conf_interval = np.percentile(source_bootstrap_means, [2.5, 97.5])
+            lens_mean = np.mean(lens_bootstrap_means)
+            lens_conf_interval = np.percentile(lens_bootstrap_means, [2.5, 97.5])
+
+            # Store results for current resolution
+            res_intervals[resolution] = {
+                "source_bin_center_mean": source_mean,
+                "source_conf_interval": source_conf_interval,
+                "lens_bin_center_mean": lens_mean,
+                "lens_conf_interval": lens_conf_interval
+            }
+
+        return res_intervals

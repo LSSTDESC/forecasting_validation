@@ -3,6 +3,8 @@ import os
 from scripts.presets import Presets
 from scripts.data_vectors import DataVectors
 from scripts.data_vector_metrics import DataVectorMetrics
+import time
+import gc
 
 
 class PowerSpectraAnalysis:
@@ -56,10 +58,14 @@ class PowerSpectraAnalysis:
         Precompute and save power spectra (Cl) for each combination of zet_max and zet_res.
         """
         for val_max in zet_max_range:
-            # Ensure `zmax` is formatted with one decimal place
-            val_max_str = f"{val_max:.1f}"
+            # Round `zmax` to 1 decimal place to avoid floating-point issues
+            val_max_rounded = round(val_max, 1)
+            val_max_str = f"{val_max_rounded:.1f}"
 
-            for val_res in zet_res_range:
+            for res in zet_res_range:
+                # Ensure `zres` is an integer
+                val_res = int(res)
+                gc.collect()
                 try:
                     presets = Presets(redshift_max=val_max, redshift_resolution=val_res,
                                       forecast_year=self.forecast_year, should_save_data=False)
