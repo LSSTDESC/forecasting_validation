@@ -4,7 +4,6 @@ from scripts.presets import Presets
 from scipy.integrate import cumulative_trapezoid
 
 from scipy.interpolate import interp1d
-from scipy.integrate import cumtrapz
 
 
 class NZMetrics:
