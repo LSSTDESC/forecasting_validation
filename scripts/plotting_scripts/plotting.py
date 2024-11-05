@@ -16,6 +16,13 @@ def plot_tomo_peaks_zres_sweep(bin_centers_resolutions,
     data_resolutions = {res: [bin_centers_resolutions[res][f"{bin_type}_bin_centers"][k] for k in bin_keys] for res in
                         bin_centers_resolutions}
 
+    padding = {"10":
+                   {"lens": 0.99, "source": 0.98},
+               "1":
+                   {"lens": 0.98, "source": 0.98}}
+
+    sub_padding = padding[forecast_year][bin_type]
+
     ph.plot_resolution_sweep_subplots(data_resolutions,
                                       labels,
                                       f"bin",
@@ -24,7 +31,8 @@ def plot_tomo_peaks_zres_sweep(bin_centers_resolutions,
                                       precision,
                                       stability_steps,
                                       marker_size,
-                                      extra_info=f"{extra_info}_zmax{zmax}")
+                                      extra_info=f"{extra_info}_zmax{zmax}",
+                                      subtitle_padding=sub_padding)
 
 
 def plot_tomo_peaks_zres_and_zmax_sweep(bin_centers_by_zmax,
@@ -73,7 +81,8 @@ def plot_kernel_peaks_zres_sweep(peaks_by_resolution,
                                  precision=0.1,
                                  stability_steps=10,
                                  marker_size=5,
-                                 extra_info=""):
+                                 extra_info="",
+                                 subtitle_padding=1.02):
     resolutions = sorted(peaks_by_resolution.keys())
     num_kernels = len(peaks_by_resolution[resolutions[0]][kernel_type])
     labels = [f"{i + 1}" for i in range(num_kernels)]
@@ -92,7 +101,8 @@ def plot_kernel_peaks_zres_sweep(peaks_by_resolution,
         precision=precision,
         stability_steps=stability_steps,
         marker_size=marker_size,
-        extra_info=extra_info
+        extra_info=extra_info,
+        subtitle_padding=subtitle_padding
     )
 
 
@@ -134,7 +144,10 @@ def plot_kernel_peaks_zres_zmax_sweep(kernel_peaks_zres_zmax_sweep,
                                   annotate_max=annotate_max)
 
 
-def plot_gbias_values_zres_sweep(galaxy_bias_resolutions, forecast_year, precision=0.1, stability_steps=10,
+def plot_gbias_values_zres_sweep(galaxy_bias_resolutions,
+                                 forecast_year,
+                                 precision=0.1,
+                                 stability_steps=10,
                                  marker_size=5):
     labels = [f"{i + 1}" for i in range(len(galaxy_bias_resolutions[next(iter(galaxy_bias_resolutions))]))]
     ph.plot_resolution_sweep_subplots(
@@ -227,9 +240,11 @@ def compare_two_data_vector_sets_relative(data_vector_1,
     plt.show()
 
 def plot_stabilization_vs_precision(bin_centers_resolutions,
-                                     bin_type,
-                                     precisions=(1, 5, 10, 15),
-                                     stability_steps=10):
+                                    bin_type,
+                                    forecast_year,
+                                    precisions=(1, 5, 10, 15),
+                                    stability_steps=10,
+                                    suptitle_padding=1.02,):
     """
     Plot the resolution at which bin centers stabilize across different precision bands.
 
@@ -248,6 +263,9 @@ def plot_stabilization_vs_precision(bin_centers_resolutions,
 
     # Prepare a figure
     fig, ax = plt.subplots(figsize=(8, 3))
+    fig.suptitle(f"{bin_type.capitalize()} bins LSST Y{forecast_year}",
+                 fontsize=18,
+                 y=suptitle_padding)
 
     # Loop over each bin and precision
     for bin_key in bin_keys:
@@ -280,11 +298,21 @@ def plot_stabilization_vs_precision(bin_centers_resolutions,
         # Plot stabilization resolution as a function of precision
         ax.plot(precisions, stabilization_points, marker='o', label=f"{bin_key + 1}", c=colors[bin_key])
 
+    legend_cols = {
+        "1": {
+            "source": 1,
+            "lens": 1},
+        "10": {
+            "source": 1,
+            "lens": 2}
+    }
+    legend_cols = legend_cols[forecast_year][bin_type]
     # Add labels and legend
     ax.set_xlabel("precision band", fontsize=14)
     ax.set_ylabel("stabilization resolution", fontsize=14)
-    ax.legend(title="tomographic bin", fontsize=10)
-
+    ax.legend(title="tomographic bin", fontsize=10, loc="upper right", ncols=legend_cols)
+    fig_name = f"{bin_type}_bins_stabilization_vs_precision_y{forecast_year}.pdf"
+    plt.savefig(f"plots_output/{fig_name}")
     plt.tight_layout()
     plt.show()
 

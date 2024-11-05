@@ -2,7 +2,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import cmasher as cmr
-from tornado.httputil import parse_multipart_form_data
+# Set Seaborn style to avoid grid
+sns.set_style("white")
+# Set Matplotlib's default style
+plt.style.use('default')
 
 
 def get_colors(num_colors, cmap="cmr.pride", cmap_range=(0.15, 0.85)):
@@ -10,13 +13,14 @@ def get_colors(num_colors, cmap="cmr.pride", cmap_range=(0.15, 0.85)):
 
 
 def plot_resolution_sweep_subplots(data_resolutions, labels, y_label, title, forecast_year,
-                                   precision=None, stability_steps=10, marker_size=5, fig_format=".pdf", extra_info=""):
+                                   precision=None, stability_steps=10, marker_size=5, fig_format=".pdf",
+                                   extra_info="", subtitle_padding=1.02):
     resolutions = sorted(data_resolutions.keys())
     num_plots = len(labels)
     colors = get_colors(num_plots)
 
     fig, axes = plt.subplots(num_plots, 1, figsize=(8, 2. * num_plots), sharex=True)
-    fig.suptitle(f"{title} - Forecast Year {forecast_year}", fontsize=18)
+    fig.suptitle(f"{title} - Forecast Year {forecast_year}", fontsize=18, y=subtitle_padding)
     axes = [axes] if num_plots == 1 else axes  # Make `axes` iterable
 
     for i, label in enumerate(labels):
