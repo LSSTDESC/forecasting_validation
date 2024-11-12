@@ -18,13 +18,13 @@ metric = DataVectorMetrics(presets)
 cls_noise = metric.get_matrix(cl_gc, cl_ggl, cl_cs, True)
 
 def likelihood(params):
-    Om = float(params['Om'])
-    Ob = float(params['Ob'])
-    h = float(params['h'])
-    sigma8 = float(params['sigma8'])
-    n_s = float(params['ns'])
-    w0 = float(params['w0'])
-    wa = float(params['wa'])
+    Om = params[0]
+    Ob = params[1]
+    h = params[2]
+    sigma8 = params[3]
+    n_s = params[4]
+    w0 = params[5]
+    wa = params[6]
     if Ob >= Om or Ob <= 0 or Om <= 0 or sigma8 <= 0:
         return -np.inf
     try:
@@ -35,6 +35,7 @@ def likelihood(params):
                                 n_s=n_s,
                                 w0=w0,
                                 wa=wa)
+        
         presets_mc = Presets(cosmology=cosmo, forecast_year=forecast_year, should_save_data=False)
         
         #presets_mc = Presets(cosmology=cosmo,redshift_resolution=600, forecast_year=forecast_year, should_save_data=False)
@@ -48,19 +49,19 @@ def likelihood(params):
     except:
         return -np.inf
 
-from nautilus import Prior
-
-prior = Prior()
-prior.add_parameter('Om', dist=(0,1))
-prior.add_parameter('Ob', dist=(0,1))
-prior.add_parameter('h', dist=(0.5,1))
-prior.add_parameter('sigma8', dist=(0.5,1))
-prior.add_parameter('ns', dist=(0.5,1))
-prior.add_parameter('w0', dist=(-5,0))
-prior.add_parameter('wa', dist=(-10,10))
 
 
-from nautilus import Sampler
+
+
+pos = [0.3156, 0.049,0.6727,0.831,0.9645,-1,0.0] + 1e-2 * np.random.randn(32, 7)
+nwalkers, ndim = pos.shape
+
 filename = "benchmark_y" + forecast_year + ".h5"
-sampler = Sampler(prior, likelihood, n_live=5000, filepath=filename, pool = 50)
-sampler.run(verbose=True)
+#filename = "modified_res_600_y" + forecast_year + ".h5"
+
+backend = emcee.backends.HDFBackend(filename)
+#backend.reset(nwalkers, ndim)
+
+sampler = emcee.EnsembleSampler(
+    nwalkers, ndim, likelihood,backend=backend)
+sampler.run_mcmc(pos, 5000, progress=True)
