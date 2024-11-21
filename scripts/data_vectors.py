@@ -91,8 +91,6 @@ class DataVectors:
         ia_bias = self.get_ia_bias() if include_ia else None
         gbias = self.get_gbias() if include_gbias else None
 
-        #print("fucking hell let's start")
-
         # Select correlation pairs
         correlation_pairs = (self.get_correlation_pairs_all()["galaxy_galaxy_lensing"]
                              if include_all_correlations
@@ -110,7 +108,7 @@ class DataVectors:
 
         # Generate angular power spectra
         for idx_1, idx_2 in correlation_pairs:
-            #start_time = time.time()
+            start_time = time.time()
             #print(f"calculating ggl for lens bin {idx_1} and source bin {idx_2}")
             tracer1 = ccl.NumberCountsTracer(
                 self.cosmology,
@@ -125,7 +123,7 @@ class DataVectors:
             )
 
             cl_values = ccl.angular_cl(self.cosmology, tracer1, tracer2, self.ells)
-            #end_time = time.time()
+            end_time = time.time()
             #print(f"Calculated cl for pair ({idx_1}, {idx_2}) in {end_time - start_time:.2f} seconds")
             cls_list.append(cl_values)
 
