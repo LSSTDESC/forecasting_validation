@@ -99,7 +99,7 @@ class PowerSpectraAnalysis:
         for val_ell in ell_values:
             # Round and convert to integer
             ell_int = round(val_ell, 1)
-            print(f"Attempting to compute and save spectra for ell={ell_int}")
+            #print(f"Attempting to compute and save spectra for ell={ell_int}")
 
             try:
                 presets_ell = Presets(forecast_year=self.forecast_year, ell_num=ell_int, should_save_data=False)
@@ -147,7 +147,10 @@ class PowerSpectraAnalysis:
         delta = np.zeros((len(zet_max_range), len(zet_res_range)))
 
         for i_max, val_max in enumerate(zet_max_range):
-            val_max_str = f"{val_max:.1f}"
+            val_max_str = f"{val_max:.1f}"  # Convert `val_max` to a string with 1 decimal precision
+
+            # Add this debug statement to confirm val_max is varying
+            print(f"Processing zmax={val_max_str}")  # Debug print to confirm val_max value
 
             for i_res, val_res in enumerate(zet_res_range):
                 try:

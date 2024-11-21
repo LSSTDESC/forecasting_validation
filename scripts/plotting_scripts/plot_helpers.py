@@ -13,7 +13,7 @@ def get_colors(num_colors, cmap="cmr.pride", cmap_range=(0.15, 0.85)):
 
 
 def plot_resolution_sweep_subplots(data_resolutions, labels, y_label, title, forecast_year,
-                                   precision=None, stability_steps=10, marker_size=5, fig_format=".pdf",
+                                   precision=None, stability_steps=10, marker_size=5,
                                    extra_info="", subtitle_padding=1.02):
     resolutions = sorted(data_resolutions.keys())
     num_plots = len(labels)
@@ -59,14 +59,15 @@ def plot_resolution_sweep_subplots(data_resolutions, labels, y_label, title, for
         axes[i].legend(loc='upper right', fontsize=12, frameon=False)
 
     axes[-1].set_xlabel("redshift resolution", fontsize=16)
-    fig_name = f"{title.replace(' ', '_').lower()}_{forecast_year}_{extra_info}{fig_format}".replace("__", "_")
-    plt.savefig(f"plots_output/{fig_name}")
+    fig_name_pdf = f"{title.replace(' ', '_').lower()}_{forecast_year}_{extra_info}.pdf".replace("__", "_")
+    fig_name_png = f"{title.replace(' ', '_').lower()}_{forecast_year}_{extra_info}.png".replace("__", "_")
+    plt.savefig(f"plots_output/{fig_name_pdf}")
+    plt.savefig(f"plots_output/{fig_name_png}")
     plt.tight_layout()
     plt.show()
 
 
-def plot_stabilization_heatmap(heatmap_data, x_labels, y_labels, title, forecast_year, annotate_max=False,
-                               fig_format=".pdf"):
+def plot_stabilization_heatmap(heatmap_data, x_labels, y_labels, title, forecast_year, annotate_max=False):
     cmap = cmr.get_sub_cmap('cmr.pride', 0.15, 0.85)
     plt.figure(figsize=(10, len(y_labels) * 0.5))
     ax = sns.heatmap(heatmap_data, annot=not annotate_max, fmt=".0f", cmap=cmap,
@@ -84,6 +85,8 @@ def plot_stabilization_heatmap(heatmap_data, x_labels, y_labels, title, forecast
     ax.set_xlabel("$z_\\mathrm{{max}}$", fontsize=16)
     ax.set_ylabel("Index", fontsize=16)
 
-    fig_name = f"{title.replace(' ', '_').lower()}_{forecast_year}{fig_format}"
-    plt.savefig(f"plots_output/{fig_name}")
+    fig_name_pdf = f"{title.replace(' ', '_').lower()}_{forecast_year}.pdf"
+    fig_name_png = f"{title.replace(' ', '_').lower()}_{forecast_year}.png"
+    plt.savefig(f"plots_output/{fig_name_pdf}")
+    plt.savefig(f"plots_output/{fig_name_png}")
     plt.show()
