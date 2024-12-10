@@ -49,10 +49,6 @@ def likelihood(params):
     except:
         return -np.inf
 
-
-
-
-
 pos = [0.3156, 0.049,0.6727,0.831,0.9645,-1,0.0] + 1e-2 * np.random.randn(32, 7)
 nwalkers, ndim = pos.shape
 
