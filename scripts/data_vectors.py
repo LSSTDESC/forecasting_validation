@@ -5,7 +5,6 @@ from .tomographic_binning import TomographicBinning
 from .presets import Presets
 import time
 
-
 class DataVectors:
 
     def __init__(self, presets: Presets):
@@ -31,7 +30,7 @@ class DataVectors:
         self.lens_bins = self.bin.lens_bins(save_file=False)
         self.source_bins = self.bin.source_bins(save_file=False)
         self.should_save_data = presets.should_save_data
-
+    
     def get_ia_bias(self):
         # For now just simple constant IA bias
         ia_bias = (self.redshift_range, np.full_like(self.redshift_range, 1.0))
@@ -41,6 +40,22 @@ class DataVectors:
         # For now just simple constant galaxy bias
         gbias = (self.redshift_range, np.full_like(self.redshift_range, 1.0))
         return gbias
+    
+    def get_magbias(self, alphas):
+        """
+        Gets the magnification bias to input into ccl. 
+
+        Parameters:
+        -----------
+        alphas : list
+            A list of the magnification value for each lens bin
+        """
+        if not hasattr(alphai, '__len__') or len(alphai) != len(self.lens_bins):
+            raise ValueError("Magnification values must be a list of length %i"%len(self.lens_bins))
+            
+        magbias = [(self.redshift_range, np.full_like(self.redshift_range, alphai))
+                   for alphai in alphas]
+        return magbias
 
     def cosmic_shear_cls(self, include_ia=True, include_all_correlations=False):
         ia_bias = self.get_ia_bias() if include_ia else None
@@ -87,9 +102,11 @@ class DataVectors:
 
         return cls_array
 
-    def galaxy_galaxy_lensing_cls(self, include_gbias=True, include_ia=True, include_all_correlations=False):
+    def galaxy_galaxy_lensing_cls(self, include_gbias=True, include_ia=True, include_all_correlations=False,
+                                  magbias=False):
         ia_bias = self.get_ia_bias() if include_ia else None
         gbias = self.get_gbias() if include_gbias else None
+        magbiases = self.get_magbias(magbias) if magbias else None
 
         # Select correlation pairs
         correlation_pairs = (self.get_correlation_pairs_all()["galaxy_galaxy_lensing"]
@@ -110,11 +127,13 @@ class DataVectors:
         for idx_1, idx_2 in correlation_pairs:
             start_time = time.time()
             #print(f"calculating ggl for lens bin {idx_1} and source bin {idx_2}")
+            magbias = None if magbiases is None else magbiases[idx_1]
             tracer1 = ccl.NumberCountsTracer(
                 self.cosmology,
                 has_rsd=False,
                 dndz=(self.redshift_range, self.lens_bins[idx_1]),
-                bias=gbias
+                bias=gbias,
+                mag_bias=magbias
             )
             tracer2 = ccl.WeakLensingTracer(
                 self.cosmology,
