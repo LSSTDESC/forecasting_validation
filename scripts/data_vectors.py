@@ -50,7 +50,7 @@ class DataVectors:
         alphas : list
             A list of the magnification value for each lens bin
         """
-        if not hasattr(alphai, '__len__') or len(alphai) != len(self.lens_bins):
+        if not hasattr(alphas, '__len__') or len(alphas) != len(self.lens_bins):
             raise ValueError("Magnification values must be a list of length %i"%len(self.lens_bins))
             
         magbias = [(self.redshift_range, np.full_like(self.redshift_range, alphai))
